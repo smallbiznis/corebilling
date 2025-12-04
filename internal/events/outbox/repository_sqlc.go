@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	eventv1 "github.com/smallbiznis/go-genproto/smallbiznis/event/v1"
@@ -140,7 +141,7 @@ func (r *Repository) exec(ctx context.Context, sql string, args ...any) (pgconn.
 	return r.pool.Exec(ctx, sql, args...)
 }
 
-func (r *Repository) query(ctx context.Context, sql string, args ...any) (pgxpool.Rows, error) {
+func (r *Repository) query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
 	return r.pool.Query(ctx, sql, args...)
 }
 
