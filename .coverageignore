@@ -1,0 +1,6 @@
+*_gen.go
+*.pb.go
+*.pb.gw.go
+*/sqlc/*
+*/mocks/*
+*/mock_*
