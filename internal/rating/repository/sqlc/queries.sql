@@ -1,6 +1,6 @@
--- name: CreateRating :exec
-INSERT INTO rating_results (id, usage_id, amount_cents, currency, created_at)
-VALUES ($1, $2, $3, $4, $5);
+-- name: CreateRatingResult :exec
+INSERT INTO rating_results (id, tenant_id, usage_id, price_id, amount_cents, currency, created_at, updated_at)
+VALUES ($1,$2,$3,$4,$5,$6,now(),now());
 
--- name: ListRatingsByUsage :many
-SELECT id, usage_id, amount_cents, currency, created_at FROM rating_results WHERE usage_id = $1 ORDER BY created_at DESC;
+-- name: GetRatingResult :one
+SELECT id, tenant_id, usage_id, price_id, amount_cents, currency, created_at, updated_at FROM rating_results WHERE id = $1;
