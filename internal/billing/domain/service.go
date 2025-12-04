@@ -1,38 +1,51 @@
 package domain
 
 import (
-	"context"
+    "context"
+    "strconv"
+    "time"
 
-	"go.uber.org/zap"
+    billingv1 "github.com/smallbiznis/go-genproto/smallbiznis/billing/v1"
+    "go.uber.org/zap"
 )
 
-// Service exposes billing operations.
+// Service implements the BillingServiceServer API.
 type Service struct {
-	repo   Repository
-	logger *zap.Logger
+    billingv1.UnimplementedBillingServiceServer
+    repo   Repository
+    logger *zap.Logger
 }
 
-// NewService creates a billing service.
+// NewService constructs a billing gRPC service.
 func NewService(repo Repository, logger *zap.Logger) *Service {
-	return &Service{repo: repo, logger: logger.Named("billing.service")}
+    return &Service{repo: repo, logger: logger.Named("billing.service")}
 }
 
-// Create records a billing entry.
-func (s *Service) Create(ctx context.Context, record BillingRecord) error {
-	if err := s.repo.Create(ctx, record); err != nil {
-		s.logger.Error("failed to create billing record", zap.Error(err))
-		return err
-	}
-	s.logger.Info("billing record created", zap.String("id", record.ID))
-	return nil
+// TriggerBilling records a billing run and returns acceptance.
+func (s *Service) TriggerBilling(ctx context.Context, req *billingv1.TriggerBillingRequest) (*billingv1.TriggerBillingResponse, error) {
+    run := BillingRun{
+        ID:             time.Now().UnixNano(),
+        TenantID:       parseID(req.GetTenantId()),
+        SubscriptionID: parseID(req.GetSubscriptionId()),
+        PeriodStart:    req.GetPeriodStart().AsTime(),
+        PeriodEnd:      req.GetPeriodEnd().AsTime(),
+        Status:         1,
+        CreatedAt:      time.Now(),
+        UpdatedAt:      time.Now(),
+    }
+
+    if err := s.repo.Create(ctx, run); err != nil {
+        s.logger.Error("failed to persist billing run", zap.Error(err))
+        return nil, err
+    }
+
+    return &billingv1.TriggerBillingResponse{Accepted: true}, nil
 }
 
-// Get retrieves a billing record by ID.
-func (s *Service) Get(ctx context.Context, id string) (BillingRecord, error) {
-	return s.repo.GetByID(ctx, id)
-}
-
-// ListByTenant returns billing records for a tenant.
-func (s *Service) ListByTenant(ctx context.Context, tenantID string) ([]BillingRecord, error) {
-	return s.repo.ListByTenant(ctx, tenantID)
+func parseID(raw string) int64 {
+    id, err := strconv.ParseInt(raw, 10, 64)
+    if err != nil {
+        return 0
+    }
+    return id
 }

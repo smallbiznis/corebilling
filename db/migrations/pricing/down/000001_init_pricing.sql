@@ -1,1 +1,2 @@
-DROP TABLE IF EXISTS pricing_plans;
+DROP TABLE IF EXISTS prices;
+DROP TABLE IF EXISTS products;

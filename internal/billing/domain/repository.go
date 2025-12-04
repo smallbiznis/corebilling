@@ -2,9 +2,9 @@ package domain
 
 import "context"
 
-// Repository defines persistence methods for billing records.
+// Repository defines persistence methods for billing runs.
 type Repository interface {
-	Create(ctx context.Context, record BillingRecord) error
-	GetByID(ctx context.Context, id string) (BillingRecord, error)
-	ListByTenant(ctx context.Context, tenantID string) ([]BillingRecord, error)
+    Create(ctx context.Context, run BillingRun) error
+    GetByID(ctx context.Context, id int64) (BillingRun, error)
+    ListBySubscription(ctx context.Context, subscriptionID int64) ([]BillingRun, error)
 }
