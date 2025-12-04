@@ -1,6 +1,6 @@
 module github.com/smallbiznis/corebilling
 
-go 1.24.3
+go 1.25.1
 
 require (
 	github.com/confluentinc/confluent-kafka-go v1.9.2
@@ -48,7 +48,7 @@ require (
 
 require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.3 // indirect
-	github.com/smallbiznis/go-genproto v0.0.0-20251204130246-3fc570741fef
+	github.com/smallbiznis/go-genproto v0.0.0-20251204201432-67584f97179f
 )
 
-replace github.com/smallbiznis/go-genproto => ./third_party/go-genproto
+// replace github.com/smallbiznis/go-genproto => ./third_party/go-genproto
