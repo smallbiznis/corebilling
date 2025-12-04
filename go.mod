@@ -45,6 +45,6 @@ require (
 )
 
 require (
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0 // indirect
-	github.com/smallbiznis/go-genproto v0.0.0-20251204130246-3fc570741fef
+github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0 // indirect
+github.com/smallbiznis/go-genproto v0.0.0-20251204130246-3fc570741fef
 )

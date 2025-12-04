@@ -10,15 +10,31 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
-
-	"github.com/smallbiznis/corebilling/internal/config"
 )
 
-// Module starts the gRPC server.
-var Module = fx.Invoke(Register)
+// Module starts the gRPC server and exposes shared server/health instances.
+var Module = fx.Options(
+	fx.Provide(NewServer),
+	fx.Provide(NewHealthServer),
+	fx.Invoke(RegisterHooks),
+)
 
-// Register wires lifecycle hooks for gRPC server.
-func Register(lc fx.Lifecycle, cfg config.Config, logger *zap.Logger) {
+// NewServer constructs the shared gRPC server instance.
+func NewServer() *grpc.Server {
+	return grpc.NewServer(grpc.ChainUnaryInterceptor(otelgrpc.UnaryServerInterceptor()))
+}
+
+// NewHealthServer builds a health server set to SERVING.
+func NewHealthServer() *health.Server {
+	srv := health.NewServer()
+	srv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+	return srv
+}
+
+// RegisterHooks wires lifecycle hooks for gRPC server.
+func RegisterHooks(lc fx.Lifecycle, logger *zap.Logger, server *grpc.Server, healthServer *health.Server) {
+	grpc_health_v1.RegisterHealthServer(server, healthServer)
+
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			lis, err := net.Listen("tcp", ":50051")
@@ -26,21 +42,17 @@ func Register(lc fx.Lifecycle, cfg config.Config, logger *zap.Logger) {
 				return err
 			}
 
-			s := grpc.NewServer(grpc.ChainUnaryInterceptor(otelgrpc.UnaryServerInterceptor()))
-			healthServer := health.NewServer()
-			healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
-			grpc_health_v1.RegisterHealthServer(s, healthServer)
-
 			go func() {
 				logger.Info("gRPC server listening", zap.String("addr", lis.Addr().String()))
-				if err := s.Serve(lis); err != nil {
+				if err := server.Serve(lis); err != nil {
 					logger.Error("gRPC server exited", zap.Error(err))
 				}
 			}()
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			// graceful stop not necessary in sample
+			logger.Info("stopping gRPC server")
+			server.GracefulStop()
 			return nil
 		},
 	})
