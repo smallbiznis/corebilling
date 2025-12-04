@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/smallbiznis/corebilling/internal/events"
+	"github.com/smallbiznis/corebilling/internal/log/ctxlogger"
 	"github.com/smallbiznis/corebilling/internal/telemetry/correlation"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -77,6 +78,7 @@ func NewKafkaBus(cfg events.EventBusConfig, logger *zap.Logger) (events.Bus, err
 // Publish sends an event to Kafka.
 func (b *KafkaBus) Publish(ctx context.Context, subject string, payload []byte) error {
 	var key []byte
+	ctx = ctxlogger.ContextWithEventSubject(ctx, subject)
 	ctx, cid := correlation.EnsureCorrelationID(ctx)
 
 	evt, unmarshalErr := events.UnmarshalEvent(payload)
@@ -93,6 +95,7 @@ func (b *KafkaBus) Publish(ctx context.Context, subject string, payload []byte) 
 		return unmarshalErr
 	}
 
+	log := ctxlogger.FromContext(ctx)
 	if evt != nil {
 		if evt.GetTenantId() != "" {
 			key = []byte(evt.GetTenantId())
@@ -135,6 +138,7 @@ func (b *KafkaBus) Publish(ctx context.Context, subject string, payload []byte) 
 		span.RecordError(err)
 		return err
 	}
+	log.Info("event.publish", zap.String("subject", subject), zap.Any("metadata", evt.GetMetadata()))
 	return nil
 }
 
@@ -220,8 +224,11 @@ func (b *KafkaBus) handleMessage(msg *ckafka.Message) {
 		}
 	}
 
-	ctx := correlation.InjectCorrelationID(context.Background(), cid)
+	ctx := correlation.ContextWithCorrelationID(context.Background(), cid)
 	ctx = correlation.ContextWithRemoteSpan(ctx, tid, sid)
+	ctx = ctxlogger.ContextWithEventSubject(ctx, evt.GetSubject())
+
+	log := ctxlogger.FromContext(ctx)
 
 	attrs := []attribute.KeyValue{
 		attribute.String("messaging.system", "kafka"),
@@ -239,11 +246,14 @@ func (b *KafkaBus) handleMessage(msg *ckafka.Message) {
 	defer span.End()
 	correlation.InjectTraceIntoEvent(evt, span)
 
+	log.Info("event.consume.start", zap.String("subject", topic), zap.String("correlation_id", cid))
 	if err := handler(ctx, evt); err != nil {
 		span.RecordError(err)
 		b.logger.Error("handler failed", zap.Error(err), zap.String("topic", topic))
 		return
 	}
+
+	log.Info("event.consume.finish")
 
 	if _, err := b.consumer.CommitMessage(msg); err != nil {
 		b.logger.Warn("commit failed", zap.Error(err))

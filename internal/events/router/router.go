@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/smallbiznis/corebilling/internal/events"
+	"github.com/smallbiznis/corebilling/internal/log/ctxlogger"
 )
 
 // Router wires subscriptions to handlers across providers.
@@ -49,6 +50,7 @@ func (r *Router) wrapHandler(subject string, h events.Handler) events.Handler {
 				corr = val.GetStringValue()
 			}
 		}
+		ctx = ctxlogger.ContextWithEventSubject(ctx, subject)
 		ctx, span := r.tracer.Start(ctx, "event.handle", trace.WithAttributes(
 			attribute.String("event.subject", subject),
 			attribute.String("event.correlation_id", corr),

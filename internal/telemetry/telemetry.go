@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/smallbiznis/corebilling/internal/config"
+	"github.com/smallbiznis/corebilling/internal/telemetry/correlation"
 )
 
 // Module wires telemetry components via Fx.
@@ -42,6 +43,7 @@ func NewTracerProvider(lc fx.Lifecycle, cfg config.Config, logger *zap.Logger) (
 	tp := trace.NewTracerProvider(
 		trace.WithBatcher(exporter),
 		trace.WithResource(res),
+		trace.WithSpanProcessor(&correlationSpanProcessor{}),
 	)
 
 	otel.SetTracerProvider(tp)
@@ -56,3 +58,16 @@ func NewTracerProvider(lc fx.Lifecycle, cfg config.Config, logger *zap.Logger) (
 	logger.Info("telemetry initialized", zap.String("endpoint", cfg.OTLPEndpoint))
 	return tp, nil
 }
+
+type correlationSpanProcessor struct{}
+
+func (p *correlationSpanProcessor) OnStart(ctx context.Context, s trace.ReadWriteSpan) {
+	_, cid := correlation.EnsureCorrelationID(ctx)
+	s.SetAttributes(attribute.String("correlation_id", cid))
+}
+
+func (p *correlationSpanProcessor) OnEnd(trace.ReadOnlySpan) {}
+
+func (p *correlationSpanProcessor) Shutdown(context.Context) error { return nil }
+
+func (p *correlationSpanProcessor) ForceFlush(context.Context) error { return nil }

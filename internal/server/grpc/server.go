@@ -10,6 +10,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
+
+	"github.com/smallbiznis/corebilling/internal/server/grpc/interceptors"
 )
 
 // Module starts the gRPC server and exposes shared server/health instances.
@@ -21,7 +23,10 @@ var Module = fx.Options(
 
 // NewServer constructs the shared gRPC server instance.
 func NewServer() *grpc.Server {
-	return grpc.NewServer(grpc.ChainUnaryInterceptor(otelgrpc.UnaryServerInterceptor()))
+	return grpc.NewServer(
+		grpc.ChainUnaryInterceptor(interceptors.LoggingUnaryInterceptor, otelgrpc.UnaryServerInterceptor()),
+		grpc.ChainStreamInterceptor(interceptors.LoggingStreamInterceptor, otelgrpc.StreamServerInterceptor()),
+	)
 }
 
 // NewHealthServer builds a health server set to SERVING.

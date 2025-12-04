@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/smallbiznis/corebilling/internal/events"
+	"github.com/smallbiznis/corebilling/internal/log/ctxlogger"
 	"github.com/smallbiznis/corebilling/internal/telemetry/correlation"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -65,6 +66,7 @@ func NewNATSBus(cfg events.EventBusConfig, logger *zap.Logger) (events.Bus, erro
 
 // Publish sends the payload to the configured subject.
 func (b *NATSBus) Publish(ctx context.Context, subject string, payload []byte) error {
+	ctx = ctxlogger.ContextWithEventSubject(ctx, subject)
 	ctx, cid := correlation.EnsureCorrelationID(ctx)
 	ctx, span := b.tracer.Start(ctx, "nats.publish", trace.WithSpanKind(trace.SpanKindProducer), trace.WithAttributes(
 		attribute.String("messaging.system", "nats"),
@@ -80,6 +82,12 @@ func (b *NATSBus) Publish(ctx context.Context, subject string, payload []byte) e
 		span.RecordError(err)
 		return err
 	}
+
+	log := ctxlogger.FromContext(ctx)
+	if evt != nil {
+		log = log.With(zap.Any("metadata", evt.Metadata))
+	}
+	log.Info("event.publish", zap.String("subject", subject))
 	if evt != nil {
 		if cid != "" {
 			if evt.Metadata == nil {
@@ -141,8 +149,11 @@ func (b *NATSBus) handleMessage(msg *nats.Msg, handler events.Handler, group str
 	tid := msg.Header.Get("trace-id")
 	sid := msg.Header.Get("span-id")
 
-	ctx := correlation.InjectCorrelationID(context.Background(), cid)
+	ctx := correlation.ContextWithCorrelationID(context.Background(), cid)
 	ctx = correlation.ContextWithRemoteSpan(ctx, tid, sid)
+	ctx = ctxlogger.ContextWithEventSubject(ctx, evt.GetSubject())
+
+	log := ctxlogger.FromContext(ctx)
 
 	attrs := []attribute.KeyValue{
 		attribute.String("messaging.system", "nats"),
@@ -160,12 +171,15 @@ func (b *NATSBus) handleMessage(msg *nats.Msg, handler events.Handler, group str
 	defer span.End()
 	correlation.InjectTraceIntoEvent(evt, span)
 
+	log.Info("event.consume.start", zap.String("subject", evt.GetSubject()), zap.String("correlation_id", cid))
 	if err := handler(ctx, evt); err != nil {
 		span.RecordError(err)
 		b.logger.Error("handler failed", zap.Error(err), zap.String("subject", evt.GetSubject()))
 		_ = msg.Nak()
 		return
 	}
+
+	log.Info("event.consume.finish")
 
 	if err := msg.Ack(); err != nil {
 		b.logger.Warn("ack failed", zap.Error(err))
