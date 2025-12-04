@@ -1,0 +1,21 @@
+codecov:
+  require_ci_to_pass: yes
+
+comment:
+  layout: "header, diff, flags, files"
+  behavior: default
+  require_changes: false
+  require_base: no
+  require_head: no
+  after_n_builds: 1
+
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%   # allow small fluctuations
+        base: auto
+    patch:
+      default:
+        target: 80%    # patch must meet minimum coverage

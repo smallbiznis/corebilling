@@ -1,5 +1,7 @@
 # CoreBilling
 
+[![Coverage](https://codecov.io/gh/smallbiznis/corebilling/branch/main/graph/badge.svg)](https://codecov.io/gh/smallbiznis/corebilling)
+
 CoreBilling is the billing engine for the SmallBiznis platform built with Go, Uber/Fx, and PostgreSQL. It includes SQLC-backed repositories, automatic migrations, and OpenTelemetry instrumentation.
 
 ## Features

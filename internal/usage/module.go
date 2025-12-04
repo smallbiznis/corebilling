@@ -9,7 +9,7 @@ import (
 
 // Module wires usage services.
 var Module = fx.Options(
-        fx.Provide(reposqlc.NewRepository),
-        fx.Provide(domain.NewService),
-        ModuleGRPC,
+	fx.Provide(reposqlc.NewRepository),
+	fx.Provide(domain.NewService),
+	ModuleGRPC,
 )

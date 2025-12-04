@@ -47,8 +47,8 @@ func (g *grpcService) ListInvoices(ctx context.Context, req *invoicev1.ListInvoi
 
 func (g *grpcService) toProto(inv domain.Invoice) *invoicev1.Invoice {
 	return &invoicev1.Invoice{
-		Id:          inv.ID,
-		TenantId:    inv.TenantID,
+		Id:         inv.ID,
+		TenantId:   inv.TenantID,
 		Status:     invoiceStatusFromString(inv.Status),
 		TotalCents: inv.TotalCents,
 		IssuedAt:   timestamppb.New(inv.BillingPeriodStart),

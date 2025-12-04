@@ -1,0 +1,69 @@
+name: Go Test Coverage
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  test-and-coverage:
+    name: Run Unit Tests & Upload Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21.x"
+
+      - name: Cache Go Modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+
+      - name: Run tests with coverage
+        run: |
+          mkdir -p coverage
+          go test ./... \
+            -covermode=atomic \
+            -coverprofile=coverage/coverage.out
+
+      - name: Generate HTML Coverage Report
+        run: go tool cover -html=coverage/coverage.out -o coverage/coverage.html
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          # token: ${{ secrets.CODECOV_TOKEN }} # required for private repos
+          files: coverage/coverage.out
+          flags: unittests
+          fail_ci_if_error: false
+          verbose: true
+          comment: true
+
+      - name: Enforce minimum coverage
+        run: |
+          threshold=80 # enterprise-grade minimum coverage
+          coverage=$(go tool cover -func=coverage/coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
+          coverage_int=${coverage%.*}
+          echo "Coverage: $coverage_int%"
+          if [ "$coverage_int" -lt "$threshold" ]; then
+            echo "Coverage below threshold ($threshold%)"
+            exit 1
+          fi

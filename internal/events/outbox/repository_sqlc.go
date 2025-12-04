@@ -96,15 +96,22 @@ func (r *Repository) InsertOutboxEvent(ctx context.Context, evt *OutboxEvent) er
 // FetchPendingEvents retrieves events eligible for dispatch.
 func (r *Repository) FetchPendingEvents(ctx context.Context, limit int32, now time.Time) ([]OutboxEvent, error) {
 	rows, err := r.query(ctx, `
-        SELECT id, subject, tenant_id, COALESCE(resource_id,'') as resource_id, payload, created_at
-        FROM billing_events
-        WHERE COALESCE(payload->'metadata'->>'outbox_status','pending') IN ('pending','failed')
-          AND (
-            payload->'metadata'->>'outbox_next_attempt_at' IS NULL
-            OR (payload->'metadata'->>'outbox_next_attempt_at')::timestamptz <= $1
-          )
-        ORDER BY created_at ASC
-        LIMIT $2`, now, limit)
+        SELECT 
+					id,
+					subject,
+					tenant_id,
+					resource_id,
+					payload,
+					status,
+					retry_count,
+					next_attempt_at,
+					last_error,
+					created_at
+			FROM billing_events
+			WHERE status = 'pending'
+				AND (next_attempt_at IS NULL OR next_attempt_at <= $1)
+			ORDER BY id
+			LIMIT $2;`, now, limit)
 	if err != nil {
 		return nil, err
 	}
