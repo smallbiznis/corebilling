@@ -11,6 +11,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/smallbiznis/corebilling/internal/events"
+	"github.com/smallbiznis/corebilling/internal/telemetry/correlation"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // NATSBus implements the events.Bus using NATS JetStream.
@@ -63,13 +65,52 @@ func NewNATSBus(cfg events.EventBusConfig, logger *zap.Logger) (events.Bus, erro
 
 // Publish sends the payload to the configured subject.
 func (b *NATSBus) Publish(ctx context.Context, subject string, payload []byte) error {
-	ctx, span := b.tracer.Start(ctx, "event.publish", trace.WithAttributes(
-		attribute.String("event.subject", subject),
-		attribute.String("event.provider", "nats"),
+	ctx, cid := correlation.EnsureCorrelationID(ctx)
+	ctx, span := b.tracer.Start(ctx, "nats.publish", trace.WithSpanKind(trace.SpanKindProducer), trace.WithAttributes(
+		attribute.String("messaging.system", "nats"),
+		attribute.String("messaging.destination_kind", "topic"),
+		attribute.String("messaging.destination", subject),
+		attribute.String("correlation_id", cid),
+		attribute.String("trace_id", span.SpanContext().TraceID().String()),
 	))
 	defer span.End()
 
-	if _, err := b.js.Publish(subject, payload); err != nil {
+	evt, err := events.UnmarshalEvent(payload)
+	if err != nil {
+		span.RecordError(err)
+		return err
+	}
+	if evt != nil {
+		if cid != "" {
+			if evt.Metadata == nil {
+				evt.Metadata = &structpb.Struct{Fields: map[string]*structpb.Value{}}
+			}
+			if evt.Metadata.Fields == nil {
+				evt.Metadata.Fields = map[string]*structpb.Value{}
+			}
+			evt.Metadata.Fields["correlation_id"] = structpb.NewStringValue(cid)
+		}
+		correlation.InjectTraceIntoEvent(evt, span)
+		if updated, marshalErr := events.MarshalEvent(evt); marshalErr == nil {
+			payload = updated
+			if val, ok := evt.Metadata.Fields["correlation_id"]; ok {
+				cid = val.GetStringValue()
+			}
+		} else {
+			span.RecordError(marshalErr)
+			return marshalErr
+		}
+	}
+
+	hdr := nats.Header{}
+	if cid != "" {
+		hdr.Set("correlation-id", cid)
+	}
+	hdr.Set("trace-id", span.SpanContext().TraceID().String())
+	hdr.Set("span-id", span.SpanContext().SpanID().String())
+
+	msg := &nats.Msg{Subject: subject, Data: payload, Header: hdr}
+	if _, err := b.js.PublishMsg(msg); err != nil {
 		span.RecordError(err)
 		return err
 	}
@@ -79,7 +120,7 @@ func (b *NATSBus) Publish(ctx context.Context, subject string, payload []byte) e
 // Subscribe registers a queue subscription for the subject.
 func (b *NATSBus) Subscribe(ctx context.Context, subject, group string, handler events.Handler) error {
 	_, err := b.js.QueueSubscribe(subject, group, func(msg *nats.Msg) {
-		go b.handleMessage(msg, handler)
+		go b.handleMessage(msg, handler, group)
 	})
 	if err != nil {
 		return fmt.Errorf("subscribe: %w", err)
@@ -88,7 +129,7 @@ func (b *NATSBus) Subscribe(ctx context.Context, subject, group string, handler 
 	return nil
 }
 
-func (b *NATSBus) handleMessage(msg *nats.Msg, handler events.Handler) {
+func (b *NATSBus) handleMessage(msg *nats.Msg, handler events.Handler, group string) {
 	evt, err := events.UnmarshalEvent(msg.Data)
 	if err != nil {
 		b.logger.Error("failed to decode event", zap.Error(err))
@@ -96,16 +137,28 @@ func (b *NATSBus) handleMessage(msg *nats.Msg, handler events.Handler) {
 		return
 	}
 
+	cid := msg.Header.Get("correlation-id")
+	tid := msg.Header.Get("trace-id")
+	sid := msg.Header.Get("span-id")
+
+	ctx := correlation.InjectCorrelationID(context.Background(), cid)
+	ctx = correlation.ContextWithRemoteSpan(ctx, tid, sid)
+
 	attrs := []attribute.KeyValue{
-		attribute.String("event.subject", evt.GetSubject()),
-		attribute.String("event.provider", "nats"),
+		attribute.String("messaging.system", "nats"),
+		attribute.String("messaging.operation", "process"),
+		attribute.String("messaging.destination", evt.GetSubject()),
+		attribute.String("correlation_id", cid),
+		attribute.String("trace_id", tid),
+		attribute.String("messaging.consumer_group", group),
 	}
 	if tenant := evt.GetTenantId(); tenant != "" {
 		attrs = append(attrs, attribute.String("event.tenant_id", tenant))
 	}
 
-	ctx, span := b.tracer.Start(context.Background(), "event.consume", trace.WithAttributes(attrs...))
+	ctx, span := b.tracer.Start(ctx, "nats.consume", trace.WithSpanKind(trace.SpanKindConsumer), trace.WithAttributes(attrs...))
 	defer span.End()
+	correlation.InjectTraceIntoEvent(evt, span)
 
 	if err := handler(ctx, evt); err != nil {
 		span.RecordError(err)

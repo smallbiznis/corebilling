@@ -8,19 +8,25 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/smallbiznis/corebilling/internal/telemetry/correlation"
 	eventv1 "github.com/smallbiznis/go-genproto/smallbiznis/event/v1"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Repository implements OutboxRepository using pgx and JSONB metadata fields.
 type Repository struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	tracer trace.Tracer
 }
 
 // NewRepository constructs a new outbox repository.
 func NewRepository(pool *pgxpool.Pool) OutboxRepository {
-	return &Repository{pool: pool}
+	return &Repository{pool: pool, tracer: otel.Tracer("events.outbox")}
 }
 
 // InsertOutboxEvent inserts a new event into billing_events with pending status.
@@ -28,6 +34,10 @@ func (r *Repository) InsertOutboxEvent(ctx context.Context, evt *OutboxEvent) er
 	if evt == nil || evt.Event == nil {
 		return errors.New("event payload required")
 	}
+
+	ctx, cid := correlation.EnsureCorrelationID(ctx)
+	ctx, span := r.tracer.Start(ctx, "outbox.write")
+	defer span.End()
 
 	if evt.Event.Id == "" {
 		evt.Event.Id = uuid.NewString()
@@ -38,6 +48,22 @@ func (r *Repository) InsertOutboxEvent(ctx context.Context, evt *OutboxEvent) er
 	if evt.Event.TenantId == "" {
 		evt.Event.TenantId = evt.TenantID
 	}
+
+	if evt.Event.Metadata == nil {
+		evt.Event.Metadata = &structpb.Struct{Fields: map[string]*structpb.Value{}}
+	}
+	if evt.Event.Metadata.Fields == nil {
+		evt.Event.Metadata.Fields = map[string]*structpb.Value{}
+	}
+	evt.Event.Metadata.Fields["correlation_id"] = structpb.NewStringValue(cid)
+
+	correlation.InjectTraceIntoEvent(evt.Event, span)
+	span.SetAttributes(
+		attribute.String("event.subject", evt.Event.Subject),
+		attribute.String("event.correlation_id", cid),
+		attribute.String("event.trace_id", span.SpanContext().TraceID().String()),
+		attribute.String("outbox.table", "billing_events"),
+	)
 
 	now := time.Now().UTC()
 	if evt.Event.CreatedAt == nil {

@@ -14,6 +14,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/smallbiznis/corebilling/internal/events"
+	"github.com/smallbiznis/corebilling/internal/telemetry/correlation"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // KafkaBus implements events.Bus using Confluent's Go client.
@@ -75,19 +77,58 @@ func NewKafkaBus(cfg events.EventBusConfig, logger *zap.Logger) (events.Bus, err
 // Publish sends an event to Kafka.
 func (b *KafkaBus) Publish(ctx context.Context, subject string, payload []byte) error {
 	var key []byte
-	if evt, err := events.UnmarshalEvent(payload); err == nil && evt.GetTenantId() != "" {
-		key = []byte(evt.GetTenantId())
-	}
+	ctx, cid := correlation.EnsureCorrelationID(ctx)
 
-	ctx, span := b.tracer.Start(ctx, "event.publish", trace.WithAttributes(
-		attribute.String("event.subject", subject),
-		attribute.String("event.provider", "kafka"),
+	evt, unmarshalErr := events.UnmarshalEvent(payload)
+	ctx, span := b.tracer.Start(ctx, "kafka.publish", trace.WithSpanKind(trace.SpanKindProducer), trace.WithAttributes(
+		attribute.String("messaging.system", "kafka"),
+		attribute.String("messaging.destination_kind", "topic"),
+		attribute.String("messaging.destination", subject),
+		attribute.String("correlation_id", cid),
+		attribute.String("trace_id", span.SpanContext().TraceID().String()),
 	))
 	defer span.End()
+	if unmarshalErr != nil {
+		span.RecordError(unmarshalErr)
+		return unmarshalErr
+	}
+
+	if evt != nil {
+		if evt.GetTenantId() != "" {
+			key = []byte(evt.GetTenantId())
+		}
+		if cid != "" {
+			if evt.Metadata == nil {
+				evt.Metadata = &structpb.Struct{Fields: map[string]*structpb.Value{}}
+			}
+			if evt.Metadata.Fields == nil {
+				evt.Metadata.Fields = map[string]*structpb.Value{}
+			}
+			evt.Metadata.Fields["correlation_id"] = structpb.NewStringValue(cid)
+		}
+	}
+
+	if evt != nil {
+		correlation.InjectTraceIntoEvent(evt, span)
+		if updated, marshalErr := events.MarshalEvent(evt); marshalErr == nil {
+			payload = updated
+			if val, ok := evt.Metadata.Fields["correlation_id"]; ok {
+				cid = val.GetStringValue()
+			}
+		} else {
+			span.RecordError(marshalErr)
+			return marshalErr
+		}
+	}
 
 	msg := &ckafka.Message{TopicPartition: ckafka.TopicPartition{Topic: &subject, Partition: ckafka.PartitionAny}, Value: payload}
 	if len(key) > 0 {
 		msg.Key = key
+	}
+	msg.Headers = []ckafka.Header{
+		{Key: "correlation-id", Value: []byte(cid)},
+		{Key: "trace-id", Value: []byte(span.SpanContext().TraceID().String())},
+		{Key: "span-id", Value: []byte(span.SpanContext().SpanID().String())},
 	}
 
 	if err := b.producer.Produce(msg, nil); err != nil {
@@ -167,16 +208,36 @@ func (b *KafkaBus) handleMessage(msg *ckafka.Message) {
 		return
 	}
 
+	var cid, tid, sid string
+	for _, h := range msg.Headers {
+		switch h.Key {
+		case "correlation-id":
+			cid = string(h.Value)
+		case "trace-id":
+			tid = string(h.Value)
+		case "span-id":
+			sid = string(h.Value)
+		}
+	}
+
+	ctx := correlation.InjectCorrelationID(context.Background(), cid)
+	ctx = correlation.ContextWithRemoteSpan(ctx, tid, sid)
+
 	attrs := []attribute.KeyValue{
-		attribute.String("event.subject", evt.GetSubject()),
-		attribute.String("event.provider", "kafka"),
+		attribute.String("messaging.system", "kafka"),
+		attribute.String("messaging.kafka.topic", topic),
+		attribute.Int64("messaging.kafka.partition", int64(msg.TopicPartition.Partition)),
+		attribute.Int64("messaging.kafka.offset", int64(msg.TopicPartition.Offset)),
+		attribute.String("correlation_id", cid),
+		attribute.String("trace_id", tid),
 	}
 	if tenant := evt.GetTenantId(); tenant != "" {
 		attrs = append(attrs, attribute.String("event.tenant_id", tenant))
 	}
 
-	ctx, span := b.tracer.Start(context.Background(), "event.consume", trace.WithAttributes(attrs...))
+	ctx, span := b.tracer.Start(ctx, "kafka.consume", trace.WithSpanKind(trace.SpanKindConsumer), trace.WithAttributes(attrs...))
 	defer span.End()
+	correlation.InjectTraceIntoEvent(evt, span)
 
 	if err := handler(ctx, evt); err != nil {
 		span.RecordError(err)
