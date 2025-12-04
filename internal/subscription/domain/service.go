@@ -32,7 +32,16 @@ func (s *Service) Get(ctx context.Context, id string) (Subscription, error) {
 	return s.repo.GetByID(ctx, id)
 }
 
-// ListByTenant lists subscriptions for a tenant.
-func (s *Service) ListByTenant(ctx context.Context, tenantID string) ([]Subscription, error) {
-	return s.repo.ListByTenant(ctx, tenantID)
+// List returns subscriptions for a tenant.
+func (s *Service) List(ctx context.Context, filter ListSubscriptionsFilter) ([]Subscription, bool, error) {
+	return s.repo.List(ctx, filter)
+}
+
+// Update persists subscription changes.
+func (s *Service) Update(ctx context.Context, sub Subscription) error {
+	if err := s.repo.Update(ctx, sub); err != nil {
+		s.logger.Error("update subscription", zap.Error(err))
+		return err
+	}
+	return nil
 }

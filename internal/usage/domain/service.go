@@ -27,7 +27,7 @@ func (s *Service) Create(ctx context.Context, usage UsageRecord) error {
 	return nil
 }
 
-// ListBySubscription lists usage entries.
-func (s *Service) ListBySubscription(ctx context.Context, subscriptionID string) ([]UsageRecord, error) {
-	return s.repo.ListBySubscription(ctx, subscriptionID)
+// List returns usage records matching the filter.
+func (s *Service) List(ctx context.Context, filter ListUsageFilter) ([]UsageRecord, bool, error) {
+	return s.repo.List(ctx, filter)
 }

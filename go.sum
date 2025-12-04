@@ -143,10 +143,10 @@ github.com/rogpeppe/fastuuid v1.2.0/go.mod h1:jVj6XXZzXRy/MSR5jhDC/2q6DgLz+nrA6L
 github.com/rogpeppe/go-internal v1.6.1/go.mod h1:xXDCJY+GAPziupqXw64V24skbSoqbTEfhy4qGm1nDQc=
 github.com/rogpeppe/go-internal v1.8.0/go.mod h1:WmiCO8CzOY8rg0OYDC4/i/2WRWAB6poM+XZ2dLUbcbE=
 github.com/santhosh-tekuri/jsonschema/v5 v5.0.0/go.mod h1:FKdcjfQW6rpZSnxxUvEA5H/cDPdvJ/SZJQLWWXWGrZ0=
-github.com/smallbiznis/go-genproto v0.0.0-20251204182207-c0676e167b4f h1:Osw46Fh4mopx3JukV26V4Dw9zsrlCdE7C/OHSY/XY3k=
-github.com/smallbiznis/go-genproto v0.0.0-20251204182207-c0676e167b4f/go.mod h1:mfjhpnCBxPzCBKen5ruP8TDhHM2lVXNr9Fr27dMoMBc=
-github.com/smallbiznis/go-genproto v0.0.0-20251204201432-67584f97179f h1:iTHs+rvkD1cIV93UC0hMStErlO06nSeBC3zX0idz/xw=
-github.com/smallbiznis/go-genproto v0.0.0-20251204201432-67584f97179f/go.mod h1:ZgtY6Ma1bUYheDMoM8ZWrLWqzQma9mimS/FmS7yWhvY=
+github.com/smallbiznis/go-genproto v0.0.0-20251204210731-5da449f9b47d h1:bt+agBmG3QL1iJcjmkgv2zyOnGblYlj3BVkWd+xmA18=
+github.com/smallbiznis/go-genproto v0.0.0-20251204210731-5da449f9b47d/go.mod h1:ZgtY6Ma1bUYheDMoM8ZWrLWqzQma9mimS/FmS7yWhvY=
+github.com/sqlc-dev/pqtype v0.3.0 h1:b09TewZ3cSnO5+M1Kqq05y0+OjqIptxELaSayg7bmqk=
+github.com/sqlc-dev/pqtype v0.3.0/go.mod h1:oyUjp5981ctiL9UYvj1bVvCKi8OXkCa0u645hce7CAs=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.3.1-0.20190311161405-34c6fa2dc709/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=

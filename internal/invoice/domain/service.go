@@ -32,7 +32,7 @@ func (s *Service) Get(ctx context.Context, id string) (Invoice, error) {
 	return s.repo.GetByID(ctx, id)
 }
 
-// ListByTenant lists invoices.
-func (s *Service) ListByTenant(ctx context.Context, tenantID string) ([]Invoice, error) {
-	return s.repo.ListByTenant(ctx, tenantID)
+// List returns invoices matching the filter.
+func (s *Service) List(ctx context.Context, filter ListInvoicesFilter) ([]Invoice, bool, error) {
+	return s.repo.List(ctx, filter)
 }

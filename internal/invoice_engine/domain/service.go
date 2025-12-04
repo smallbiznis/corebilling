@@ -6,6 +6,7 @@ import (
 	"time"
 
 	invoice "github.com/smallbiznis/corebilling/internal/invoice/domain"
+	invoicev1 "github.com/smallbiznis/go-genproto/smallbiznis/invoice/v1"
 	invoiceenginev1 "github.com/smallbiznis/go-genproto/smallbiznis/invoice_engine/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -41,13 +42,19 @@ func (s *Service) GenerateInvoice(ctx context.Context, req *invoiceenginev1.Gene
 	end := normalizeTimestamp(req.GetPeriodEnd(), now)
 
 	inv := invoice.Invoice{
-		ID:                 invoiceID,
-		TenantID:           req.GetTenantId(),
-		BillingPeriodStart: start,
-		BillingPeriodEnd:   end,
-		TotalCents:         0,
-		Status:             "open",
-		CreatedAt:          now,
+		ID:             invoiceID,
+		TenantID:       req.GetTenantId(),
+		CustomerID:     req.GetCustomerId(),
+		SubscriptionID: req.GetSubscriptionId(),
+		Status:         int32(invoicev1.InvoiceStatus_INVOICE_STATUS_OPEN),
+		CurrencyCode:   "USD",
+		TotalCents:     0,
+		SubtotalCents:  0,
+		TaxCents:       0,
+		IssuedAt:       &start,
+		DueAt:          &end,
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 
 	if err := s.invoiceRepo.Create(ctx, inv); err != nil {

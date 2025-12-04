@@ -31,3 +31,15 @@ CREATE TABLE IF NOT EXISTS prices (
 
 CREATE INDEX IF NOT EXISTS idx_prices_product ON prices (product_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_prices_tenant_code ON prices (tenant_id, code);
+
+CREATE TABLE IF NOT EXISTS price_tiers (
+    id BIGINT PRIMARY KEY,
+    price_id BIGINT NOT NULL REFERENCES prices(id),
+    start_quantity DOUBLE PRECISION NOT NULL,
+    end_quantity DOUBLE PRECISION NOT NULL,
+    unit_amount_cents BIGINT NOT NULL,
+    unit TEXT NOT NULL,
+    metadata JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

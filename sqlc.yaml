@@ -1,44 +1,50 @@
 version: "2"
 sql:
-  - engine: postgresql
+  - name: billing
+    engine: postgresql
     queries: internal/billing/repository/sqlc/queries.sql
     schema: db/migrations/billing/up
     gen:
       go:
         package: sqlc
         out: internal/billing/repository/sqlc
-  - engine: postgresql
-    queries: internal/pricing/repository/sqlc/queries.sql
-    schema: db/migrations/pricing/up
-    gen:
-      go:
-        package: sqlc
-        out: internal/pricing/repository/sqlc
-  - engine: postgresql
-    queries: internal/subscription/repository/sqlc/queries.sql
-    schema: db/migrations/subscription/up
-    gen:
-      go:
-        package: sqlc
-        out: internal/subscription/repository/sqlc
-  - engine: postgresql
-    queries: internal/usage/repository/sqlc/queries.sql
-    schema: db/migrations/usage/up
-    gen:
-      go:
-        package: sqlc
-        out: internal/usage/repository/sqlc
-  - engine: postgresql
-    queries: internal/rating/repository/sqlc/queries.sql
-    schema: db/migrations/rating/up
-    gen:
-      go:
-        package: sqlc
-        out: internal/rating/repository/sqlc
-  - engine: postgresql
+  - name: invoice
+    engine: postgresql
     queries: internal/invoice/repository/sqlc/queries.sql
     schema: db/migrations/invoice/up
     gen:
       go:
         package: sqlc
         out: internal/invoice/repository/sqlc
+  - name: pricing
+    engine: postgresql
+    queries: internal/pricing/repository/sqlc/queries.sql
+    schema: db/migrations/pricing/up
+    gen:
+      go:
+        package: sqlc
+        out: internal/pricing/repository/sqlc
+  - name: rating
+    engine: postgresql
+    queries: internal/rating/repository/sqlc/queries.sql
+    schema: db/migrations/rating/up
+    gen:
+      go:
+        package: sqlc
+        out: internal/rating/repository/sqlc
+  - name: subscription
+    engine: postgresql
+    queries: internal/subscription/repository/sqlc/queries.sql
+    schema: db/migrations/subscription/up
+    gen:
+      go:
+        package: sqlc
+        out: internal/subscription/repository/sqlc
+  - name: usage
+    engine: postgresql
+    queries: internal/usage/repository/sqlc/queries.sql
+    schema: db/migrations/usage/up
+    gen:
+      go:
+        package: sqlc
+        out: internal/usage/repository/sqlc

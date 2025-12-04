@@ -31,3 +31,7 @@ $GOMODCACHE/
 
 # Logs
 *.log
+
+/third_party
+/coverage
+.cache/
