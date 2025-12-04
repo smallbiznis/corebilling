@@ -1,0 +1,33 @@
+## Go tooling
+# Binaries for programs and plugins
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Build directories
+bin/
+obj/
+
+# IDE / editor directories
+.idea/
+.vscode/
+*.iml
+
+# OS generated files
+.DS_Store
+
+# Environment files
+.env
+.env.*
+
+# Go module cache / downloads
+# (kept for local state, not checked into git)
+$GOMODCACHE/
+
+# Logs
+*.log

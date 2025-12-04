@@ -24,7 +24,7 @@ func Load() Config {
 	_ = godotenv.Load()
 
 	cfg := Config{
-		DatabaseURL:              getenv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/corebilling?sslmode=disable"),
+		DatabaseURL:              getenv("DATABASE_URL", "postgres://postgres:35411231@localhost:5433/postgres?sslmode=disable"),
 		ServiceName:              getenv("SERVICE_NAME", "corebilling"),
 		ServiceVersion:           getenv("SERVICE_VERSION", "0.1.0"),
 		Environment:              getenv("ENVIRONMENT", "development"),

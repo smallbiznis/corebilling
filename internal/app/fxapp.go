@@ -4,6 +4,7 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/smallbiznis/corebilling/internal/billing"
+	"github.com/smallbiznis/corebilling/internal/billing_event"
 	"github.com/smallbiznis/corebilling/internal/config"
 	"github.com/smallbiznis/corebilling/internal/db"
 	"github.com/smallbiznis/corebilling/internal/eventfx"
@@ -28,6 +29,7 @@ func New() *fx.App {
 		telemetry.Module,
 		eventfx.Module,
 		billing.Module,
+		billing_event.Module,
 		pricing.Module,
 		subscription.Module,
 		usage.Module,

@@ -55,7 +55,7 @@ func (g *grpcService) ListUsage(ctx context.Context, req *usagev1.ListUsageReque
 
 	resp := &usagev1.ListUsageResponse{}
 	for _, item := range items {
-		resp.UsageRecords = append(resp.UsageRecords, &usagev1.UsageRecord{
+		resp.Records = append(resp.Records, &usagev1.UsageRecord{
 			Id:             item.ID,
 			SubscriptionId: item.SubscriptionID,
 			MeterCode:      item.Metric,

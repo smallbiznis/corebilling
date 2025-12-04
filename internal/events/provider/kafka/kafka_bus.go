@@ -82,12 +82,13 @@ func (b *KafkaBus) Publish(ctx context.Context, subject string, payload []byte) 
 	ctx, cid := correlation.EnsureCorrelationID(ctx)
 
 	evt, unmarshalErr := events.UnmarshalEvent(payload)
+	parentTraceID := trace.SpanContextFromContext(ctx).TraceID().String()
 	ctx, span := b.tracer.Start(ctx, "kafka.publish", trace.WithSpanKind(trace.SpanKindProducer), trace.WithAttributes(
 		attribute.String("messaging.system", "kafka"),
 		attribute.String("messaging.destination_kind", "topic"),
 		attribute.String("messaging.destination", subject),
 		attribute.String("correlation_id", cid),
-		attribute.String("trace_id", span.SpanContext().TraceID().String()),
+		attribute.String("trace_id", parentTraceID),
 	))
 	defer span.End()
 	if unmarshalErr != nil {

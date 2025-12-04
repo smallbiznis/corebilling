@@ -68,12 +68,13 @@ func NewNATSBus(cfg events.EventBusConfig, logger *zap.Logger) (events.Bus, erro
 func (b *NATSBus) Publish(ctx context.Context, subject string, payload []byte) error {
 	ctx = ctxlogger.ContextWithEventSubject(ctx, subject)
 	ctx, cid := correlation.EnsureCorrelationID(ctx)
+	parentTraceID := trace.SpanContextFromContext(ctx).TraceID().String()
 	ctx, span := b.tracer.Start(ctx, "nats.publish", trace.WithSpanKind(trace.SpanKindProducer), trace.WithAttributes(
 		attribute.String("messaging.system", "nats"),
 		attribute.String("messaging.destination_kind", "topic"),
 		attribute.String("messaging.destination", subject),
 		attribute.String("correlation_id", cid),
-		attribute.String("trace_id", span.SpanContext().TraceID().String()),
+		attribute.String("trace_id", parentTraceID),
 	))
 	defer span.End()
 

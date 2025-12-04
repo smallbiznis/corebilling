@@ -42,7 +42,7 @@ func RegisterHooks(lc fx.Lifecycle, logger *zap.Logger, server *grpc.Server, hea
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			lis, err := net.Listen("tcp", ":50051")
+			lis, err := net.Listen("tcp", ":50052")
 			if err != nil {
 				return err
 			}
