@@ -6,6 +6,7 @@ import (
 	"github.com/smallbiznis/corebilling/internal/billing"
 	"github.com/smallbiznis/corebilling/internal/config"
 	"github.com/smallbiznis/corebilling/internal/db"
+	"github.com/smallbiznis/corebilling/internal/eventfx"
 	"github.com/smallbiznis/corebilling/internal/invoice"
 	"github.com/smallbiznis/corebilling/internal/log"
 	"github.com/smallbiznis/corebilling/internal/pricing"
@@ -25,6 +26,7 @@ func New() *fx.App {
 		db.Module,
 		db.MigrationsModule,
 		telemetry.Module,
+		eventfx.Module,
 		billing.Module,
 		pricing.Module,
 		subscription.Module,

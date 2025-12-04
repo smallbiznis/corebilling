@@ -29,7 +29,7 @@ func Load() Config {
 		ServiceVersion:           getenv("SERVICE_VERSION", "0.1.0"),
 		Environment:              getenv("ENVIRONMENT", "development"),
 		MigrationsRoot:           getenv("MIGRATIONS_ROOT", "db/migrations"),
-		EnabledMigrationServices: parseServices(getenv("ENABLED_MIGRATION_SERVICES", "billing,pricing,subscription,usage,rating,invoice")),
+		EnabledMigrationServices: parseServices(getenv("ENABLED_MIGRATION_SERVICES", "billing,billing_event,pricing,subscription,usage,rating,invoice")),
 		OTLPEndpoint:             getenv("OTLP_ENDPOINT", "localhost:4317"),
 	}
 	return cfg
