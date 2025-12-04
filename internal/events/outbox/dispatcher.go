@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/smallbiznis/corebilling/internal/events"
+	"github.com/smallbiznis/corebilling/internal/log/ctxlogger"
 	"github.com/smallbiznis/corebilling/internal/telemetry/correlation"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -60,9 +61,9 @@ func (d *Dispatcher) processBatch(ctx context.Context) {
 
 	for _, evt := range eventsOut {
 		corrID := extractCorrelationFromEvent(evt.Event)
-		eventCtx := ctx
+		eventCtx := ctxlogger.ContextWithEventSubject(ctx, evt.Subject)
 		if corrID != "" {
-			eventCtx = correlation.InjectCorrelationID(eventCtx, corrID)
+			eventCtx = correlation.ContextWithCorrelationID(eventCtx, corrID)
 		}
 
 		spanAttrs := []attribute.KeyValue{
@@ -89,6 +90,9 @@ func (d *Dispatcher) processBatch(ctx context.Context) {
 				evt.Payload = updated
 			}
 		}
+		log := ctxlogger.FromContext(eventCtx)
+		log.Info("outbox.dispatch", zap.String("subject", evt.Subject))
+
 		if err := d.bus.Publish(eventCtx, evt.Subject, evt.Payload); err != nil {
 			span.RecordError(err)
 			d.handleFailure(ctx, evt, err)

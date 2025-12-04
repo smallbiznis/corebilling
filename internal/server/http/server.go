@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/smallbiznis/corebilling/internal/server/http/middleware"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -21,7 +22,7 @@ func Register(lc fx.Lifecycle, logger *zap.Logger) {
 
 	srv := &http.Server{
 		Addr:    ":8080",
-		Handler: mux,
+		Handler: middleware.LoggingMiddleware(mux),
 	}
 
 	lc.Append(fx.Hook{

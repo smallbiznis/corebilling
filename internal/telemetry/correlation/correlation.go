@@ -24,12 +24,17 @@ func ExtractCorrelationID(ctx context.Context) string {
 	return ""
 }
 
-// InjectCorrelationID sets the correlation ID onto the context.
-func InjectCorrelationID(ctx context.Context, id string) context.Context {
+// ContextWithCorrelationID sets the correlation ID onto the context.
+func ContextWithCorrelationID(ctx context.Context, id string) context.Context {
 	if id == "" {
 		return ctx
 	}
 	return context.WithValue(ctx, correlationKey{}, id)
+}
+
+// InjectCorrelationID is kept for backwards compatibility and delegates to ContextWithCorrelationID.
+func InjectCorrelationID(ctx context.Context, id string) context.Context {
+	return ContextWithCorrelationID(ctx, id)
 }
 
 // EnsureCorrelationID guarantees a correlation ID on the context, generating one when missing.
@@ -38,7 +43,7 @@ func EnsureCorrelationID(ctx context.Context) (context.Context, string) {
 	if cid == "" {
 		cid = ulid.Make().String()
 	}
-	return InjectCorrelationID(ctx, cid), cid
+	return ContextWithCorrelationID(ctx, cid), cid
 }
 
 // InjectTraceIntoEvent augments the event metadata with correlation and tracing identifiers.

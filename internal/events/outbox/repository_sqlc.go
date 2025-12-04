@@ -9,11 +9,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/smallbiznis/corebilling/internal/log/ctxlogger"
 	"github.com/smallbiznis/corebilling/internal/telemetry/correlation"
 	eventv1 "github.com/smallbiznis/go-genproto/smallbiznis/event/v1"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -23,11 +25,12 @@ import (
 type Repository struct {
 	pool   *pgxpool.Pool
 	tracer trace.Tracer
+	logger *zap.Logger
 }
 
 // NewRepository constructs a new outbox repository.
-func NewRepository(pool *pgxpool.Pool) OutboxRepository {
-	return &Repository{pool: pool, tracer: otel.Tracer("events.outbox")}
+func NewRepository(pool *pgxpool.Pool, logger *zap.Logger) OutboxRepository {
+	return &Repository{pool: pool, tracer: otel.Tracer("events.outbox"), logger: logger}
 }
 
 // InsertOutboxEvent inserts a new event into billing_events with pending status.
@@ -39,6 +42,9 @@ func (r *Repository) InsertOutboxEvent(ctx context.Context, evt *OutboxEvent) er
 	ctx, cid := correlation.EnsureCorrelationID(ctx)
 	ctx, span := r.tracer.Start(ctx, "outbox.write")
 	defer span.End()
+
+	log := ctxlogger.FromContext(ctx)
+	log.Info("outbox.write", zap.String("subject", evt.Subject))
 
 	if evt.Event.Id == "" {
 		evt.Event.Id = uuid.NewString()
