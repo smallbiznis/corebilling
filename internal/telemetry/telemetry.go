@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/smallbiznis/corebilling/internal/config"
+	"github.com/smallbiznis/corebilling/internal/telemetry/correlation"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -11,13 +13,13 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
-
-	"github.com/smallbiznis/corebilling/internal/config"
-	"github.com/smallbiznis/corebilling/internal/telemetry/correlation"
 )
 
 // Module wires telemetry components via Fx.
-var Module = fx.Provide(NewTracerProvider)
+var Module = fx.Options(
+	fx.Provide(NewTracerProvider),
+	fx.Provide(NewMetrics),
+)
 
 // NewTracerProvider configures OTLP exporter and tracer provider.
 func NewTracerProvider(lc fx.Lifecycle, cfg config.Config, logger *zap.Logger) (*trace.TracerProvider, error) {

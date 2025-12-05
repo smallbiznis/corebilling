@@ -16,7 +16,6 @@ import (
 	"github.com/smallbiznis/corebilling/internal/events"
 	"github.com/smallbiznis/corebilling/internal/log/ctxlogger"
 	"github.com/smallbiznis/corebilling/internal/telemetry/correlation"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // KafkaBus implements events.Bus using Confluent's Go client.
@@ -76,70 +75,78 @@ func NewKafkaBus(cfg events.EventBusConfig, logger *zap.Logger) (events.Bus, err
 }
 
 // Publish sends an event to Kafka.
-func (b *KafkaBus) Publish(ctx context.Context, subject string, payload []byte) error {
-	var key []byte
-	ctx = ctxlogger.ContextWithEventSubject(ctx, subject)
-	ctx, cid := correlation.EnsureCorrelationID(ctx)
-
-	evt, unmarshalErr := events.UnmarshalEvent(payload)
-	parentTraceID := trace.SpanContextFromContext(ctx).TraceID().String()
-	ctx, span := b.tracer.Start(ctx, "kafka.publish", trace.WithSpanKind(trace.SpanKindProducer), trace.WithAttributes(
-		attribute.String("messaging.system", "kafka"),
-		attribute.String("messaging.destination_kind", "topic"),
-		attribute.String("messaging.destination", subject),
-		attribute.String("correlation_id", cid),
-		attribute.String("trace_id", parentTraceID),
-	))
-	defer span.End()
-	if unmarshalErr != nil {
-		span.RecordError(unmarshalErr)
-		return unmarshalErr
+func (b *KafkaBus) Publish(ctx context.Context, envelopes ...events.EventEnvelope) error {
+	if len(envelopes) == 0 {
+		return nil
 	}
-
-	log := ctxlogger.FromContext(ctx)
-	if evt != nil {
-		if evt.GetTenantId() != "" {
-			key = []byte(evt.GetTenantId())
+	seen := make(map[string]struct{}, len(envelopes))
+	for _, env := range envelopes {
+		publishCtx, err := env.Prepare(ctx)
+		if err != nil {
+			return err
 		}
-		if cid != "" {
-			if evt.Metadata == nil {
-				evt.Metadata = &structpb.Struct{Fields: map[string]*structpb.Value{}}
-			}
-			if evt.Metadata.Fields == nil {
-				evt.Metadata.Fields = map[string]*structpb.Value{}
-			}
-			evt.Metadata.Fields["correlation_id"] = structpb.NewStringValue(cid)
+		if env.Event == nil || env.Subject == "" {
+			continue
 		}
-	}
+		if _, ok := seen[env.Event.Id]; ok {
+			continue
+		}
+		seen[env.Event.Id] = struct{}{}
 
-	if evt != nil {
-		correlation.InjectTraceIntoEvent(evt, span)
-		if updated, marshalErr := events.MarshalEvent(evt); marshalErr == nil {
-			payload = updated
-			if val, ok := evt.Metadata.Fields["correlation_id"]; ok {
-				cid = val.GetStringValue()
-			}
-		} else {
+		attrs := []attribute.KeyValue{
+			attribute.String("messaging.system", "kafka"),
+			attribute.String("messaging.destination_kind", "topic"),
+			attribute.String("messaging.destination", env.Subject),
+		}
+		if env.TenantID != "" {
+			attrs = append(attrs, attribute.String("event.tenant_id", env.TenantID))
+		}
+		if env.CorrelationID != "" {
+			attrs = append(attrs, attribute.String("correlation_id", env.CorrelationID))
+		}
+
+		publishCtx, span := b.tracer.Start(publishCtx, "kafka.publish", trace.WithSpanKind(trace.SpanKindProducer), trace.WithAttributes(attrs...))
+		correlation.InjectTraceIntoEvent(env.Event, span)
+		payload, marshalErr := events.MarshalEvent(env.Event)
+		if marshalErr != nil {
 			span.RecordError(marshalErr)
+			span.End()
 			return marshalErr
 		}
-	}
+		env.Payload = payload
 
-	msg := &ckafka.Message{TopicPartition: ckafka.TopicPartition{Topic: &subject, Partition: ckafka.PartitionAny}, Value: payload}
-	if len(key) > 0 {
-		msg.Key = key
-	}
-	msg.Headers = []ckafka.Header{
-		{Key: "correlation-id", Value: []byte(cid)},
-		{Key: "trace-id", Value: []byte(span.SpanContext().TraceID().String())},
-		{Key: "span-id", Value: []byte(span.SpanContext().SpanID().String())},
-	}
+		log := ctxlogger.FromContext(publishCtx).With(zap.String("subject", env.Subject), zap.String("event_id", env.Event.Id))
+		if env.Event.Metadata != nil {
+			log = log.With(zap.Any("metadata", env.Event.Metadata.AsMap()))
+		}
+		log.Info("event.publish")
 
-	if err := b.producer.Produce(msg, nil); err != nil {
-		span.RecordError(err)
-		return err
+		msg := &ckafka.Message{TopicPartition: ckafka.TopicPartition{Topic: &env.Subject, Partition: ckafka.PartitionAny}, Value: env.Payload}
+		if env.TenantID != "" {
+			msg.Key = []byte(env.TenantID)
+		}
+		headers := []ckafka.Header{
+			{Key: "trace-id", Value: []byte(span.SpanContext().TraceID().String())},
+			{Key: "span-id", Value: []byte(span.SpanContext().SpanID().String())},
+		}
+		if env.CorrelationID != "" {
+			headers = append(headers, ckafka.Header{Key: "correlation-id", Value: []byte(env.CorrelationID)})
+		}
+		if env.CausationID != "" {
+			headers = append(headers, ckafka.Header{Key: "causation-id", Value: []byte(env.CausationID)})
+		}
+		if env.TenantID != "" {
+			headers = append(headers, ckafka.Header{Key: "tenant-id", Value: []byte(env.TenantID)})
+		}
+		msg.Headers = headers
+
+		if err := b.producer.Produce(msg, nil); err != nil {
+			span.RecordError(err)
+			span.End()
+			return err
+		}
+		span.End()
 	}
-	log.Info("event.publish", zap.String("subject", subject), zap.Any("metadata", evt.GetMetadata()))
 	return nil
 }
 

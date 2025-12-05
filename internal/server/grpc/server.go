@@ -4,14 +4,14 @@ import (
 	"context"
 	"net"
 
+	"github.com/smallbiznis/corebilling/internal/server/grpc/interceptors"
+	"github.com/smallbiznis/corebilling/internal/telemetry"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
-
-	"github.com/smallbiznis/corebilling/internal/server/grpc/interceptors"
 )
 
 // Module starts the gRPC server and exposes shared server/health instances.
@@ -22,10 +22,18 @@ var Module = fx.Options(
 )
 
 // NewServer constructs the shared gRPC server instance.
-func NewServer() *grpc.Server {
+func NewServer(metrics *telemetry.Metrics) *grpc.Server {
 	return grpc.NewServer(
-		grpc.ChainUnaryInterceptor(interceptors.LoggingUnaryInterceptor, otelgrpc.UnaryServerInterceptor()),
-		grpc.ChainStreamInterceptor(interceptors.LoggingStreamInterceptor, otelgrpc.StreamServerInterceptor()),
+		grpc.ChainUnaryInterceptor(
+			interceptors.MetricsUnaryInterceptor(metrics),
+			interceptors.LoggingUnaryInterceptor,
+			otelgrpc.UnaryServerInterceptor(),
+		),
+		grpc.ChainStreamInterceptor(
+			interceptors.MetricsStreamInterceptor(metrics),
+			interceptors.LoggingStreamInterceptor,
+			otelgrpc.StreamServerInterceptor(),
+		),
 	)
 }
 

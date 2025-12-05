@@ -16,6 +16,7 @@ import (
 	"github.com/smallbiznis/corebilling/internal/meter"
 	"github.com/smallbiznis/corebilling/internal/pricing"
 	"github.com/smallbiznis/corebilling/internal/rating"
+	"github.com/smallbiznis/corebilling/internal/ledger"
 	"github.com/smallbiznis/corebilling/internal/server/grpc"
 	"github.com/smallbiznis/corebilling/internal/server/http"
 	"github.com/smallbiznis/corebilling/internal/subscription"
@@ -45,6 +46,7 @@ func New() *fx.App {
 		subscription.Module,
 		usage.Module,
 		rating.Module,
+		ledger.Module,
 		invoice.Module,
 		grpcserver.Module,
 		httpserver.Module,

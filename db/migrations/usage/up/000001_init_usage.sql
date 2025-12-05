@@ -13,3 +13,5 @@ CREATE TABLE IF NOT EXISTS usage_records (
 );
 
 CREATE INDEX IF NOT EXISTS idx_usage_subscription ON usage_records (subscription_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uidx_usage_idempotency
+ON usage_records (tenant_id, idempotency_key);

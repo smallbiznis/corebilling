@@ -9,25 +9,30 @@ import (
 
 	"github.com/smallbiznis/corebilling/internal/eventbus"
 	"github.com/smallbiznis/corebilling/internal/events"
+	"github.com/smallbiznis/corebilling/internal/events/handler"
+	"github.com/smallbiznis/corebilling/internal/events/handler/providers"
 	"github.com/smallbiznis/corebilling/internal/events/outbox"
 	"github.com/smallbiznis/corebilling/internal/events/router"
+	"github.com/smallbiznis/corebilling/internal/telemetry"
 )
 
 // Module wires event bus, outbox, and router into the Fx graph.
 var Module = fx.Options(
+	providers.Module,
 	fx.Provide(
 		events.NewEventBusConfig,
 		eventbus.NewBus,
+		providePublisher,
 		outbox.NewRepository,
-		func(repo outbox.OutboxRepository, bus events.Bus, logger *zap.Logger) *outbox.Dispatcher {
-			return outbox.NewDispatcher(repo, bus, logger)
+		func(repo outbox.OutboxRepository, bus events.Bus, logger *zap.Logger, metrics *telemetry.Metrics) *outbox.Dispatcher {
+			return outbox.NewDispatcher(repo, bus, logger, metrics)
 		},
-		func(bus events.Bus, logger *zap.Logger, cfg events.EventBusConfig) *router.Router {
+		func(bus events.Bus, logger *zap.Logger, cfg events.EventBusConfig, metrics *telemetry.Metrics) *router.Router {
 			group := cfg.KafkaGroupID
 			if group == "" {
 				group = "corebilling"
 			}
-			return router.NewRouter(bus, logger, group)
+			return router.NewRouter(bus, logger, group, metrics)
 		},
 		func() *outbox.IdempotencyTracker {
 			tracker := outbox.NewIdempotencyTracker(10 * time.Minute)
@@ -38,6 +43,8 @@ var Module = fx.Options(
 		startDispatcher,
 		manageBusLifecycle,
 		startIdempotency,
+		registerHandlers,
+		startRouter,
 	),
 )
 
@@ -69,6 +76,24 @@ func startIdempotency(lc fx.Lifecycle, tracker *outbox.IdempotencyTracker) {
 		OnStop: func(ctx context.Context) error {
 			tracker.Stop()
 			return nil
+		},
+	})
+}
+func registerHandlers(router *router.Router, group handler.HandlerGroup) {
+	for _, h := range group.Handlers {
+		router.Register(h.Subject(), h.Handle)
+	}
+}
+
+func providePublisher(bus events.Bus) events.Publisher {
+	return bus
+}
+
+func startRouter(lc fx.Lifecycle, router *router.Router, logger *zap.Logger) {
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			logger.Info("starting event router")
+			return router.Start(ctx)
 		},
 	})
 }

@@ -48,3 +48,11 @@ sql:
       go:
         package: sqlc
         out: internal/usage/repository/sqlc
+  - name: webhook
+    engine: postgresql
+    queries: internal/webhook/repository/queries.sql
+    schema: db/migrations/webhook/up
+    gen:
+      go:
+        package: sqlc
+        out: internal/webhook/repository/sqlc

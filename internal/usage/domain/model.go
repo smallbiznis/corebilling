@@ -13,6 +13,7 @@ type UsageRecord struct {
 	RecordedAt     time.Time
 	IdempotencyKey string
 	Metadata       map[string]interface{}
+	State          string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }

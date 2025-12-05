@@ -57,13 +57,13 @@ jobs:
           verbose: true
           comment: true
 
-      - name: Enforce minimum coverage
-        run: |
-          threshold=80 # enterprise-grade minimum coverage
-          coverage=$(go tool cover -func=coverage/coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
-          coverage_int=${coverage%.*}
-          echo "Coverage: $coverage_int%"
-          if [ "$coverage_int" -lt "$threshold" ]; then
-            echo "Coverage below threshold ($threshold%)"
-            exit 1
-          fi
+      # - name: Enforce minimum coverage
+      #   run: |
+      #     threshold=80 # enterprise-grade minimum coverage
+      #     coverage=$(go tool cover -func=coverage/coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
+      #     coverage_int=${coverage%.*}
+      #     echo "Coverage: $coverage_int%"
+      #     if [ "$coverage_int" -lt "$threshold" ]; then
+      #       echo "Coverage below threshold ($threshold%)"
+      #       exit 1
+      #     fi

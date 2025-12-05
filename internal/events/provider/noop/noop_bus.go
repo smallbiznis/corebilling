@@ -19,8 +19,17 @@ func NewNoopBus(logger *zap.Logger) *NoopBus {
 }
 
 // Publish logs the event instead of sending it.
-func (b *NoopBus) Publish(ctx context.Context, subject string, payload []byte) error {
-	b.logger.Info("noop publish", zap.String("subject", subject), zap.Int("payload_bytes", len(payload)))
+func (b *NoopBus) Publish(ctx context.Context, envelopes ...events.EventEnvelope) error {
+	for _, env := range envelopes {
+		payloadBytes := len(env.Payload)
+		if payloadBytes == 0 && env.Event != nil {
+			if data, err := events.MarshalEvent(env.Event); err == nil {
+				env.Payload = data
+				payloadBytes = len(data)
+			}
+		}
+		b.logger.Info("noop publish", zap.String("subject", env.Subject), zap.Int("payload_bytes", payloadBytes))
+	}
 	return nil
 }
 

@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	events "github.com/smallbiznis/corebilling/internal/events"
 )
 
 // MockEventBus is a mock of EventBus interface.
@@ -35,15 +36,24 @@ func (m *MockEventBus) EXPECT() *MockEventBusMockRecorder {
 }
 
 // Publish mocks base method.
-func (m *MockEventBus) Publish(ctx context.Context, subject string, data []byte) error {
+func (m *MockEventBus) Publish(ctx context.Context, envelopes ...events.EventEnvelope) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Publish", ctx, subject, data)
+	ret := m.ctrl.Call(m, "Publish", append([]interface{}{ctx}, toInterfaces(envelopes)...)...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Publish indicates an expected call of Publish.
-func (mr *MockEventBusMockRecorder) Publish(ctx, subject, data interface{}) *gomock.Call {
+func (mr *MockEventBusMockRecorder) Publish(ctx interface{}, envelopes ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockEventBus)(nil).Publish), ctx, subject, data)
+	args := append([]interface{}{ctx}, envelopes...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockEventBus)(nil).Publish), args...)
+}
+
+func toInterfaces(vals []events.EventEnvelope) []interface{} {
+	res := make([]interface{}, len(vals))
+	for i := range vals {
+		res[i] = vals[i]
+	}
+	return res
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/smallbiznis/corebilling/internal/events"
 	"github.com/smallbiznis/corebilling/internal/log/ctxlogger"
 	"github.com/smallbiznis/corebilling/internal/telemetry/correlation"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // NATSBus implements the events.Bus using NATS JetStream.
@@ -65,63 +64,72 @@ func NewNATSBus(cfg events.EventBusConfig, logger *zap.Logger) (events.Bus, erro
 }
 
 // Publish sends the payload to the configured subject.
-func (b *NATSBus) Publish(ctx context.Context, subject string, payload []byte) error {
-	ctx = ctxlogger.ContextWithEventSubject(ctx, subject)
-	ctx, cid := correlation.EnsureCorrelationID(ctx)
-	parentTraceID := trace.SpanContextFromContext(ctx).TraceID().String()
-	ctx, span := b.tracer.Start(ctx, "nats.publish", trace.WithSpanKind(trace.SpanKindProducer), trace.WithAttributes(
-		attribute.String("messaging.system", "nats"),
-		attribute.String("messaging.destination_kind", "topic"),
-		attribute.String("messaging.destination", subject),
-		attribute.String("correlation_id", cid),
-		attribute.String("trace_id", parentTraceID),
-	))
-	defer span.End()
-
-	evt, err := events.UnmarshalEvent(payload)
-	if err != nil {
-		span.RecordError(err)
-		return err
+func (b *NATSBus) Publish(ctx context.Context, envelopes ...events.EventEnvelope) error {
+	if len(envelopes) == 0 {
+		return nil
 	}
-
-	log := ctxlogger.FromContext(ctx)
-	if evt != nil {
-		log = log.With(zap.Any("metadata", evt.Metadata))
-	}
-	log.Info("event.publish", zap.String("subject", subject))
-	if evt != nil {
-		if cid != "" {
-			if evt.Metadata == nil {
-				evt.Metadata = &structpb.Struct{Fields: map[string]*structpb.Value{}}
-			}
-			if evt.Metadata.Fields == nil {
-				evt.Metadata.Fields = map[string]*structpb.Value{}
-			}
-			evt.Metadata.Fields["correlation_id"] = structpb.NewStringValue(cid)
+	seen := make(map[string]struct{}, len(envelopes))
+	for _, env := range envelopes {
+		publishCtx, err := env.Prepare(ctx)
+		if err != nil {
+			return err
 		}
-		correlation.InjectTraceIntoEvent(evt, span)
-		if updated, marshalErr := events.MarshalEvent(evt); marshalErr == nil {
-			payload = updated
-			if val, ok := evt.Metadata.Fields["correlation_id"]; ok {
-				cid = val.GetStringValue()
-			}
-		} else {
+		if env.Event == nil || env.Subject == "" {
+			continue
+		}
+		if _, ok := seen[env.Event.Id]; ok {
+			continue
+		}
+		seen[env.Event.Id] = struct{}{}
+
+		attrs := []attribute.KeyValue{
+			attribute.String("messaging.system", "nats"),
+			attribute.String("messaging.destination_kind", "topic"),
+			attribute.String("messaging.destination", env.Subject),
+		}
+		if env.TenantID != "" {
+			attrs = append(attrs, attribute.String("event.tenant_id", env.TenantID))
+		}
+		if env.CorrelationID != "" {
+			attrs = append(attrs, attribute.String("correlation_id", env.CorrelationID))
+		}
+
+		publishCtx, span := b.tracer.Start(publishCtx, "nats.publish", trace.WithSpanKind(trace.SpanKindProducer), trace.WithAttributes(attrs...))
+		correlation.InjectTraceIntoEvent(env.Event, span)
+		payload, marshalErr := events.MarshalEvent(env.Event)
+		if marshalErr != nil {
 			span.RecordError(marshalErr)
+			span.End()
 			return marshalErr
 		}
-	}
+		env.Payload = payload
 
-	hdr := nats.Header{}
-	if cid != "" {
-		hdr.Set("correlation-id", cid)
-	}
-	hdr.Set("trace-id", span.SpanContext().TraceID().String())
-	hdr.Set("span-id", span.SpanContext().SpanID().String())
+		log := ctxlogger.FromContext(publishCtx).With(zap.String("subject", env.Subject), zap.String("event_id", env.Event.Id))
+		if env.Event.Metadata != nil {
+			log = log.With(zap.Any("metadata", env.Event.Metadata.AsMap()))
+		}
+		log.Info("event.publish")
 
-	msg := &nats.Msg{Subject: subject, Data: payload, Header: hdr}
-	if _, err := b.js.PublishMsg(msg); err != nil {
-		span.RecordError(err)
-		return err
+		hdr := nats.Header{}
+		if env.CorrelationID != "" {
+			hdr.Set("correlation-id", env.CorrelationID)
+		}
+		if env.CausationID != "" {
+			hdr.Set("causation-id", env.CausationID)
+		}
+		if env.TenantID != "" {
+			hdr.Set("tenant-id", env.TenantID)
+		}
+		hdr.Set("trace-id", span.SpanContext().TraceID().String())
+		hdr.Set("span-id", span.SpanContext().SpanID().String())
+
+		msg := &nats.Msg{Subject: env.Subject, Data: env.Payload, Header: hdr}
+		if _, err := b.js.PublishMsg(msg); err != nil {
+			span.RecordError(err)
+			span.End()
+			return err
+		}
+		span.End()
 	}
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/smallbiznis/corebilling/internal/events"
 	"github.com/smallbiznis/corebilling/internal/events/bus"
 	"github.com/smallbiznis/corebilling/internal/events/outbox"
 )
@@ -22,17 +23,22 @@ func NewDispatcher(r outbox.OutboxRepository, b bus.EventBus) *Dispatcher {
 // Process fetches up to `limit` pending events and publishes them.
 func (d *Dispatcher) Process(ctx context.Context, limit int) error {
 	now := time.Now().UTC()
-	events, err := d.repo.FetchPendingEvents(ctx, int32(limit), now)
+	records, err := d.repo.FetchPendingEvents(ctx, int32(limit), now)
 	if err != nil {
 		return err
 	}
-	for _, evt := range events {
-		subject := evt.Subject
-		payload := evt.Payload
-		if evt.Event != nil && evt.Event.Subject != "" {
-			subject = evt.Event.Subject
+	for _, evt := range records {
+		env := events.NewEnvelope(evt.Event)
+		if env.Subject == "" {
+			env.Subject = evt.Subject
 		}
-		if err := d.bus.Publish(ctx, subject, payload); err != nil {
+		if env.TenantID == "" {
+			env.TenantID = evt.TenantID
+		}
+		if len(evt.Payload) > 0 {
+			env.Payload = evt.Payload
+		}
+		if err := d.bus.Publish(ctx, env); err != nil {
 			return err
 		}
 		if err := d.repo.MarkDispatched(ctx, evt.ID); err != nil {
