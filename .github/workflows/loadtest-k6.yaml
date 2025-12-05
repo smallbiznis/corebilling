@@ -1,0 +1,98 @@
+name: Load Testing (k6)
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  k6:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create compose file
+        run: |
+          cat <<'COMPOSE' > docker-compose.loadtest.yml
+          version: '3.9'
+          services:
+            app:
+              image: golang:1.22
+              working_dir: /workspace
+              volumes:
+                - ./:/workspace
+              command: go run ./cmd/billing
+              environment:
+                - DATABASE_URL=postgres://postgres:postgres@postgres:5432/beaas?sslmode=disable
+                - REDIS_URL=redis://redis:6379
+                - NATS_URL=nats://nats:4222
+                - KAFKA_BROKER=broker:9092
+              depends_on:
+                - postgres
+                - redis
+                - nats
+                - broker
+            postgres:
+              image: postgres:16
+              environment:
+                POSTGRES_PASSWORD: postgres
+                POSTGRES_USER: postgres
+                POSTGRES_DB: beaas
+              ports:
+                - "5432:5432"
+            redis:
+              image: redis:7
+              ports:
+                - "6379:6379"
+            nats:
+              image: nats:latest
+              command: -js
+              ports:
+                - "4222:4222"
+            broker:
+              image: bitnami/kafka:latest
+              environment:
+                KAFKA_ENABLE_KRAFT: "yes"
+                KAFKA_CFG_NODE_ID: "1"
+                KAFKA_CFG_PROCESS_ROLES: controller,broker
+                KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+                KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092
+                KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+                KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@broker:9093
+                ALLOW_PLAINTEXT_LISTENER: "yes"
+              ports:
+                - "9092:9092"
+                - "9093:9093"
+          COMPOSE
+
+      - name: Start services
+        run: docker compose -f docker-compose.loadtest.yml up -d
+
+      - name: Wait for stack
+        run: |
+          sudo apt-get update && sudo apt-get install -y netcat
+          POSTGRES_HOST=localhost POSTGRES_PORT=5432 \
+          REDIS_HOST=localhost REDIS_PORT=6379 \
+          NATS_HOST=localhost NATS_PORT=4222 \
+          KAFKA_HOST=localhost KAFKA_PORT=9092 \
+          bash scripts/wait-for-services.sh
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run k6 tests
+        run: |
+          if ls loadtests/*.js >/dev/null 2>&1; then
+            for script in loadtests/*.js; do
+              echo "Running $script"
+              k6 run "$script"
+            done
+          else
+            echo "No loadtests/*.js found; skipping."
+          fi
+
+      - name: Teardown
+        if: always()
+        run: docker compose -f docker-compose.loadtest.yml down -v

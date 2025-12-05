@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      deploy_preview:
+        description: 'Deploy preview environment'
+        type: boolean
+        default: false
+      run_loadtest:
+        description: 'Run k6 load tests'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  lint:
+    uses: ./.github/workflows/lint.yaml
+    secrets: inherit
+
+  unit:
+    needs: lint
+    uses: ./.github/workflows/test-unit.yaml
+    secrets: inherit
+
+  race:
+    needs: unit
+    uses: ./.github/workflows/test-race.yaml
+    secrets: inherit
+
+  integration:
+    needs: race
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ["14", "15", "16"]
+        redis: ["6", "7"]
+    uses: ./.github/workflows/test-integration.yaml
+    with:
+      postgres-version: ${{ matrix.postgres }}
+      redis-version: ${{ matrix.redis }}
+    secrets: inherit
+
+  e2e:
+    needs: integration
+    uses: ./.github/workflows/test-e2e.yaml
+    secrets: inherit
+
+  sql-drift:
+    needs: e2e
+    uses: ./.github/workflows/sql-drift.yaml
+    secrets: inherit
+
+  coverage:
+    needs: [unit, integration, e2e, sql-drift]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*coverage*'
+          merge-multiple: true
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Merge coverage
+        run: |
+          go install github.com/wadey/gocovmerge@latest
+          profiles=($(find . -name '*.out'))
+          if [ ${#profiles[@]} -eq 0 ]; then
+            echo "No coverage profiles found"
+            exit 1
+          fi
+          gocovmerge "${profiles[@]}" > merged.out
+
+      - name: Upload merged coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: merged-coverage
+          path: merged.out
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: merged.out
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  loadtest:
+    needs: e2e
+    if: github.event_name == 'workflow_dispatch' && inputs.run_loadtest
+    uses: ./.github/workflows/loadtest-k6.yaml
+    secrets: inherit
+
+  build:
+    needs: [coverage, sql-drift]
+    uses: ./.github/workflows/build.yaml
+    secrets: inherit
+
+  preview:
+    needs: build
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.deploy_preview) || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'preview')) }}
+    runs-on: ubuntu-latest
+    environment: preview
+    steps:
+      - run: echo "Trigger preview deployment with image ghcr.io/${{ github.repository_owner }}/corebilling:${{ github.sha }}"
+
+  security:
+    needs: build
+    uses: ./.github/workflows/security.yaml
+    secrets: inherit

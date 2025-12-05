@@ -1,0 +1,140 @@
+name: Reusable Testcontainers
+
+on:
+  workflow_call:
+    inputs:
+      postgres-version:
+        required: true
+        type: string
+      redis-version:
+        required: true
+        type: string
+      test-command:
+        required: false
+        type: string
+        default: ""
+      working-directory:
+        required: false
+        type: string
+        default: "."
+      coverage-artifact:
+        required: false
+        type: string
+        default: ""
+    outputs:
+      pg_dsn:
+        description: "Postgres DSN"
+        value: ${{ jobs.provision.outputs.pg_dsn }}
+      redis_addr:
+        description: "Redis address"
+        value: ${{ jobs.provision.outputs.redis_addr }}
+      nats_url:
+        description: "NATS URL"
+        value: ${{ jobs.provision.outputs.nats_url }}
+      kafka_broker:
+        description: "Kafka broker"
+        value: ${{ jobs.provision.outputs.kafka_broker }}
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    outputs:
+      pg_dsn: ${{ steps.export.outputs.pg_dsn }}
+      redis_addr: ${{ steps.export.outputs.redis_addr }}
+      nats_url: ${{ steps.export.outputs.nats_url }}
+      kafka_broker: ${{ steps.export.outputs.kafka_broker }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Enable user namespaces
+        run: sudo sysctl -w kernel.unprivileged_userns_clone=1
+
+      - name: Start Postgres
+        run: |
+          docker run -d --name beaas-postgres \
+            -e POSTGRES_PASSWORD=postgres \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_DB=beaas \
+            -p 5432:5432 postgres:${{ inputs.postgres-version }}
+
+      - name: Start Redis
+        run: |
+          docker run -d --name beaas-redis \
+            -p 6379:6379 redis:${{ inputs.redis-version }}
+
+      - name: Start NATS
+        run: |
+          docker run -d --name beaas-nats -p 4222:4222 nats:latest -js
+
+      - name: Start Kafka (KRaft)
+        run: |
+          docker run -d --name beaas-kafka \
+            -p 9092:9092 -p 9093:9093 \
+            -e KAFKA_ENABLE_KRAFT=yes \
+            -e KAFKA_CFG_NODE_ID=1 \
+            -e KAFKA_CFG_PROCESS_ROLES=controller,broker \
+            -e KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093 \
+            -e KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://127.0.0.1:9092 \
+            -e KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER \
+            -e KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@localhost:9093 \
+            -e ALLOW_PLAINTEXT_LISTENER=yes \
+            bitnami/kafka:latest
+
+      - name: Wait for services
+        run: |
+          sudo apt-get update && sudo apt-get install -y netcat
+          POSTGRES_HOST=localhost POSTGRES_PORT=5432 \
+          REDIS_HOST=localhost REDIS_PORT=6379 \
+          NATS_HOST=localhost NATS_PORT=4222 \
+          KAFKA_HOST=localhost KAFKA_PORT=9092 \
+          bash scripts/wait-for-services.sh
+        shell: bash
+
+      - name: Export connection strings
+        id: export
+        run: |
+          echo "pg_dsn=postgres://postgres:postgres@localhost:5432/beaas?sslmode=disable" >> "$GITHUB_OUTPUT"
+          echo "redis_addr=redis://localhost:6379" >> "$GITHUB_OUTPUT"
+          echo "nats_url=nats://localhost:4222" >> "$GITHUB_OUTPUT"
+          echo "kafka_broker=localhost:9092" >> "$GITHUB_OUTPUT"
+
+      - name: Show container health
+        run: |
+          docker ps
+
+      - name: Run caller tests
+        if: inputs.test-command != ''
+        env:
+          PG_DSN: ${{ steps.export.outputs.pg_dsn }}
+          REDIS_ADDR: ${{ steps.export.outputs.redis_addr }}
+          NATS_URL: ${{ steps.export.outputs.nats_url }}
+          KAFKA_BROKER: ${{ steps.export.outputs.kafka_broker }}
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.test-command }}
+
+      - name: Upload coverage artifact
+        if: inputs.coverage-artifact != '' && inputs.test-command != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.coverage-artifact }}
+          path: ${{ inputs.working-directory }}/*.out
+          if-no-files-found: ignore
+
+      - name: Cleanup containers
+        if: always()
+        run: |
+          docker logs beaas-postgres || true
+          docker logs beaas-redis || true
+          docker logs beaas-nats || true
+          docker logs beaas-kafka || true
+          docker stop beaas-postgres beaas-redis beaas-nats beaas-kafka || true
+          docker rm beaas-postgres beaas-redis beaas-nats beaas-kafka || true
+        shell: bash
+        continue-on-error: true

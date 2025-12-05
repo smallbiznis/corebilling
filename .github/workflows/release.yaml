@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (fallback for manual runs)'
+        required: false
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-image:
+    uses: ./.github/workflows/reusable-build.yaml
+    with:
+      push: true
+      tag-latest: false
+      additional-tags: ${{ github.ref_name }}
+    secrets: inherit
+
+  release:
+    needs: build-image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate changelog
+        env:
+          MANUAL_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          git fetch --tags
+          CURRENT_TAG=${MANUAL_TAG:-${GITHUB_REF##*/}}
+          PREV_TAG=$(git describe --tags --abbrev=0 "${CURRENT_TAG}^" 2>/dev/null || true)
+          if [[ -n "$PREV_TAG" ]]; then
+            git log --pretty=format:'* %h %s (%an)' "${PREV_TAG}..${CURRENT_TAG}" > CHANGELOG.md
+          else
+            git log --pretty=format:'* %h %s (%an)' > CHANGELOG.md
+          fi
+          echo "Changelog generated for ${CURRENT_TAG}"
+
+      - name: Build release archive
+        run: |
+          mkdir -p dist
+          git archive --format=tar.gz -o dist/corebilling-${GITHUB_REF##*/}.tar.gz HEAD
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: BEaaS ${{ github.ref_name }}
+          body_path: CHANGELOG.md
+          files: dist/corebilling-${{ github.ref_name }}.tar.gz
