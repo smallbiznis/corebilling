@@ -1,0 +1,34 @@
+name: Integration Tests
+
+on:
+  workflow_call:
+    inputs:
+      postgres-version:
+        required: true
+        type: string
+      redis-version:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      postgres-version:
+        required: true
+        type: string
+        default: "16"
+      redis-version:
+        required: true
+        type: string
+        default: "7"
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    uses: ./.github/workflows/reusable-testcontainers.yaml
+    with:
+      postgres-version: ${{ inputs.postgres-version }}
+      redis-version: ${{ inputs.redis-version }}
+      test-command: go test ./internal/idempotency/... -tags=integration -coverprofile=int.out -covermode=atomic
+      coverage-artifact: integration-coverage-pg${{ inputs.postgres-version }}-redis${{ inputs.redis-version }}
+    secrets: inherit
