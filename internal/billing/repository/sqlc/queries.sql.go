@@ -7,7 +7,8 @@ package sqlc
 
 import (
 	"context"
-	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getBillingRun = `-- name: GetBillingRun :one
@@ -15,9 +16,9 @@ SELECT id, tenant_id, subscription_id, period_start, period_end, status, created
 FROM billing_runs WHERE id = $1
 `
 
-func (q *Queries) GetBillingRun(ctx context.Context, id int64) (BillingRun, error) {
-	row := q.db.QueryRowContext(ctx, getBillingRun, id)
-	var i BillingRun
+func (q *Queries) GetBillingRun(ctx context.Context, id int64) (BillingRuns, error) {
+	row := q.db.QueryRow(ctx, getBillingRun, id)
+	var i BillingRuns
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
@@ -37,16 +38,16 @@ VALUES ($1, $2, $3, $4, $5, $6, now(), now())
 `
 
 type InsertBillingRunParams struct {
-	ID             int64
-	TenantID       int64
-	SubscriptionID int64
-	PeriodStart    time.Time
-	PeriodEnd      time.Time
-	Status         int16
+	ID             int64              `json:"id"`
+	TenantID       int64              `json:"tenant_id"`
+	SubscriptionID int64              `json:"subscription_id"`
+	PeriodStart    pgtype.Timestamptz `json:"period_start"`
+	PeriodEnd      pgtype.Timestamptz `json:"period_end"`
+	Status         int16              `json:"status"`
 }
 
 func (q *Queries) InsertBillingRun(ctx context.Context, arg InsertBillingRunParams) error {
-	_, err := q.db.ExecContext(ctx, insertBillingRun,
+	_, err := q.db.Exec(ctx, insertBillingRun,
 		arg.ID,
 		arg.TenantID,
 		arg.SubscriptionID,
@@ -62,15 +63,15 @@ SELECT id, tenant_id, subscription_id, period_start, period_end, status, created
 FROM billing_runs WHERE subscription_id = $1 ORDER BY period_start DESC
 `
 
-func (q *Queries) ListBillingRunsBySubscription(ctx context.Context, subscriptionID int64) ([]BillingRun, error) {
-	rows, err := q.db.QueryContext(ctx, listBillingRunsBySubscription, subscriptionID)
+func (q *Queries) ListBillingRunsBySubscription(ctx context.Context, subscriptionID int64) ([]BillingRuns, error) {
+	rows, err := q.db.Query(ctx, listBillingRunsBySubscription, subscriptionID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []BillingRun
+	var items []BillingRuns
 	for rows.Next() {
-		var i BillingRun
+		var i BillingRuns
 		if err := rows.Scan(
 			&i.ID,
 			&i.TenantID,
@@ -84,9 +85,6 @@ func (q *Queries) ListBillingRunsBySubscription(ctx context.Context, subscriptio
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

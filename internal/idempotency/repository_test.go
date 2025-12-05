@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -50,11 +51,39 @@ func setupPostgres(t *testing.T) (*pgxpool.Pool, testcontainers.Container, func(
 func applyMigrations(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 	t.Helper()
 
-	migration, err := os.ReadFile("db/migrations/idempotency/up/000001_idempotency.sql")
+	root := projectRoot(t)
+	migrationPath := filepath.Join(root, "db", "migrations", "idempotency", "up", "000001_idempotency.sql")
+
+	migration, err := os.ReadFile(migrationPath)
 	require.NoError(t, err)
 
 	_, err = pool.Exec(ctx, string(migration))
 	require.NoError(t, err)
+}
+
+func projectRoot(t *testing.T) string {
+	t.Helper()
+
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+
+	dir := cwd
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		} else if !os.IsNotExist(err) {
+			require.NoError(t, err)
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+
+	t.Fatalf("project root not found from %s", cwd)
+	return ""
 }
 
 func TestSQLRepositoryInsertAndGet(t *testing.T) {

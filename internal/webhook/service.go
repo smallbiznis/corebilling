@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/smallbiznis/corebilling/internal/events"
 	"github.com/smallbiznis/corebilling/internal/webhook/repository"
 	"go.uber.org/zap"
@@ -57,6 +58,10 @@ func (s *Service) DispatchForEvent(ctx context.Context, env events.EventEnvelope
 	}
 
 	now := time.Now().UTC()
+	ts := pgtype.Timestamptz{
+		Time:  now,
+		Valid: true,
+	}
 	eventID := envelopeID(env)
 	for _, hook := range webhooks {
 		attempt := repository.DeliveryAttemptParams{
@@ -66,9 +71,9 @@ func (s *Service) DispatchForEvent(ctx context.Context, env events.EventEnvelope
 			Payload:   json.RawMessage(payload),
 			Status:    statusPending,
 			AttemptNo: 0,
-			NextRunAt: now,
-			CreatedAt: now,
-			UpdatedAt: now,
+			NextRunAt: ts,
+			CreatedAt: ts,
+			UpdatedAt: ts,
 		}
 		if _, err := s.repo.InsertDeliveryAttempt(ctx, attempt); err != nil {
 			s.logger.Error("failed to enqueue webhook attempt", zap.String("webhook_id", hook.ID), zap.String("event_id", env.Event.GetId()), zap.Error(err))

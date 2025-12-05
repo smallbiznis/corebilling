@@ -5,22 +5,19 @@
 package sqlc
 
 import (
-	"database/sql"
-	"time"
-
-	"github.com/sqlc-dev/pqtype"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type UsageRecord struct {
-	ID             string
-	TenantID       string
-	CustomerID     string
-	SubscriptionID string
-	MeterCode      string
-	Value          float64
-	RecordedAt     time.Time
-	IdempotencyKey sql.NullString
-	Metadata       pqtype.NullRawMessage
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+type UsageRecords struct {
+	ID             string             `json:"id"`
+	TenantID       string             `json:"tenant_id"`
+	CustomerID     string             `json:"customer_id"`
+	SubscriptionID string             `json:"subscription_id"`
+	MeterCode      string             `json:"meter_code"`
+	Value          float64            `json:"value"`
+	RecordedAt     pgtype.Timestamptz `json:"recorded_at"`
+	IdempotencyKey pgtype.Text        `json:"idempotency_key"`
+	Metadata       []byte             `json:"metadata"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }

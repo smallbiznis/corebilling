@@ -5,64 +5,64 @@
 package sqlc
 
 import (
-	"database/sql"
 	"encoding/json"
-	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type Webhook struct {
-	ID         string
-	TenantID   string
-	TargetUrl  string
-	Secret     string
-	EventTypes []string
-	Enabled    bool
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+type WebhookDeliveries struct {
+	ID             string             `json:"id"`
+	SubscriptionID string             `json:"subscription_id"`
+	EventID        string             `json:"event_id"`
+	Status         int16              `json:"status"`
+	ResponseStatus pgtype.Int4        `json:"response_status"`
+	ResponseBody   pgtype.Text        `json:"response_body"`
+	DeliveredAt    pgtype.Timestamptz `json:"delivered_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
-type WebhookDelivery struct {
-	ID             string
-	SubscriptionID string
-	EventID        string
-	Status         int16
-	ResponseStatus sql.NullInt32
-	ResponseBody   sql.NullString
-	DeliveredAt    sql.NullTime
-	CreatedAt      time.Time
-}
-
-type WebhookDeliveryAttempt struct {
-	ID        int64
-	WebhookID string
-	EventID   string
-	TenantID  string
-	Payload   json.RawMessage
-	Status    string
-	AttemptNo int32
-	NextRunAt time.Time
-	LastError sql.NullString
-	CreatedAt time.Time
-	UpdatedAt time.Time
+type WebhookDeliveryAttempts struct {
+	ID        int64              `json:"id"`
+	WebhookID string             `json:"webhook_id"`
+	EventID   string             `json:"event_id"`
+	TenantID  string             `json:"tenant_id"`
+	Payload   json.RawMessage    `json:"payload"`
+	Status    string             `json:"status"`
+	AttemptNo int32              `json:"attempt_no"`
+	NextRunAt pgtype.Timestamptz `json:"next_run_at"`
+	LastError pgtype.Text        `json:"last_error"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 type WebhookDlq struct {
-	ID        int64
-	WebhookID string
-	EventID   string
-	TenantID  string
-	Payload   json.RawMessage
-	Reason    sql.NullString
-	CreatedAt time.Time
+	ID        int64              `json:"id"`
+	WebhookID string             `json:"webhook_id"`
+	EventID   string             `json:"event_id"`
+	TenantID  string             `json:"tenant_id"`
+	Payload   json.RawMessage    `json:"payload"`
+	Reason    pgtype.Text        `json:"reason"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
-type WebhookSubscription struct {
-	ID         string
-	TenantID   string
-	Url        string
-	Status     int16
-	Secret     sql.NullString
-	EventTypes []string
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+type WebhookSubscriptions struct {
+	ID         string             `json:"id"`
+	TenantID   string             `json:"tenant_id"`
+	Url        string             `json:"url"`
+	Status     int16              `json:"status"`
+	Secret     pgtype.Text        `json:"secret"`
+	EventTypes []string           `json:"event_types"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Webhooks struct {
+	ID         string             `json:"id"`
+	TenantID   string             `json:"tenant_id"`
+	TargetUrl  string             `json:"target_url"`
+	Secret     string             `json:"secret"`
+	EventTypes []string           `json:"event_types"`
+	Enabled    bool               `json:"enabled"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 }

@@ -31,12 +31,12 @@ type Repository struct {
 }
 
 // NewRepository constructs a new outbox repository.
-func NewRepository(pool *pgxpool.Pool, logger *zap.Logger) OutboxRepository {
+func NewRepository(pool *pgxpool.Pool, logger *zap.Logger) *Repository {
 	return NewRepositoryWithConfig(pool, logger, NewConfigFromEnv())
 }
 
 // NewRepositoryWithConfig constructs an outbox repository using the provided config.
-func NewRepositoryWithConfig(pool *pgxpool.Pool, logger *zap.Logger, cfg Config) OutboxRepository {
+func NewRepositoryWithConfig(pool *pgxpool.Pool, logger *zap.Logger, cfg Config) *Repository {
 	shardTotal := cfg.ShardTotal
 	if shardTotal < 1 {
 		shardTotal = 1
@@ -132,7 +132,7 @@ func (r *Repository) FetchPendingEvents(ctx context.Context, limit int32, now ti
                         FROM billing_events
                         WHERE status = 'pending'
                                 AND (next_attempt_at IS NULL OR next_attempt_at <= $1)
-                                AND (CASE WHEN $3 <= 1 THEN true ELSE (((('x' || substr(md5(id), 1, 16))::bit(64)::bigint) % $3) = $4) END)
+                        AND (CASE WHEN $3 <= 1 THEN true ELSE (((('x' || substr(md5(id::text), 1, 16))::bit(64)::bigint) % $3) = $4) END)
                         ORDER BY id
                         LIMIT $2;`, now, limit, r.shardTotal, r.shardID)
 	if err != nil {

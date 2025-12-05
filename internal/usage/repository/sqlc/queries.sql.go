@@ -7,10 +7,8 @@ package sqlc
 
 import (
 	"context"
-	"database/sql"
-	"time"
 
-	"github.com/sqlc-dev/pqtype"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createUsageRecord = `-- name: CreateUsageRecord :exec
@@ -28,19 +26,19 @@ ON CONFLICT (tenant_id, idempotency_key) DO NOTHING
 `
 
 type CreateUsageRecordParams struct {
-	ID             string
-	TenantID       string
-	CustomerID     string
-	SubscriptionID string
-	MeterCode      string
-	Value          float64
-	RecordedAt     time.Time
-	IdempotencyKey sql.NullString
-	Metadata       pqtype.NullRawMessage
+	ID             string             `json:"id"`
+	TenantID       string             `json:"tenant_id"`
+	CustomerID     string             `json:"customer_id"`
+	SubscriptionID string             `json:"subscription_id"`
+	MeterCode      string             `json:"meter_code"`
+	Value          float64            `json:"value"`
+	RecordedAt     pgtype.Timestamptz `json:"recorded_at"`
+	IdempotencyKey pgtype.Text        `json:"idempotency_key"`
+	Metadata       []byte             `json:"metadata"`
 }
 
 func (q *Queries) CreateUsageRecord(ctx context.Context, arg CreateUsageRecordParams) error {
-	_, err := q.db.ExecContext(ctx, createUsageRecord,
+	_, err := q.db.Exec(ctx, createUsageRecord,
 		arg.ID,
 		arg.TenantID,
 		arg.CustomerID,
@@ -66,20 +64,20 @@ LIMIT $2 OFFSET $3
 `
 
 type ListUsageBySubscriptionParams struct {
-	SubscriptionID string
-	Limit          int32
-	Offset         int32
+	SubscriptionID string `json:"subscription_id"`
+	Limit          int32  `json:"limit"`
+	Offset         int32  `json:"offset"`
 }
 
-func (q *Queries) ListUsageBySubscription(ctx context.Context, arg ListUsageBySubscriptionParams) ([]UsageRecord, error) {
-	rows, err := q.db.QueryContext(ctx, listUsageBySubscription, arg.SubscriptionID, arg.Limit, arg.Offset)
+func (q *Queries) ListUsageBySubscription(ctx context.Context, arg ListUsageBySubscriptionParams) ([]UsageRecords, error) {
+	rows, err := q.db.Query(ctx, listUsageBySubscription, arg.SubscriptionID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []UsageRecord
+	var items []UsageRecords
 	for rows.Next() {
-		var i UsageRecord
+		var i UsageRecords
 		if err := rows.Scan(
 			&i.ID,
 			&i.TenantID,
@@ -96,9 +94,6 @@ func (q *Queries) ListUsageBySubscription(ctx context.Context, arg ListUsageBySu
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

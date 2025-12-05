@@ -3,7 +3,7 @@
 //   sqlc v1.30.0
 // source: queries.sql
 
-package idempotencysqlc
+package sqlc
 
 import (
 	"context"
@@ -12,11 +12,17 @@ import (
 const getRecord = `-- name: GetRecord :one
 SELECT tenant_id, key, request_hash, response, status, created_at, updated_at
 FROM idempotency_records
-WHERE tenant_id = $1 AND key = $2`
+WHERE tenant_id = $1 AND key = $2
+`
 
-func (q *Queries) GetRecord(ctx context.Context, arg GetRecordParams) (IdempotencyRecord, error) {
+type GetRecordParams struct {
+	TenantID string `json:"tenant_id"`
+	Key      string `json:"key"`
+}
+
+func (q *Queries) GetRecord(ctx context.Context, arg GetRecordParams) (IdempotencyRecords, error) {
 	row := q.db.QueryRow(ctx, getRecord, arg.TenantID, arg.Key)
-	var i IdempotencyRecord
+	var i IdempotencyRecords
 	err := row.Scan(
 		&i.TenantID,
 		&i.Key,
@@ -32,7 +38,14 @@ func (q *Queries) GetRecord(ctx context.Context, arg GetRecordParams) (Idempoten
 const insertProcessing = `-- name: InsertProcessing :exec
 INSERT INTO idempotency_records (
     tenant_id, key, request_hash, status
-) VALUES ($1, $2, $3, 'PROCESSING')`
+) VALUES ($1, $2, $3, 'PROCESSING')
+`
+
+type InsertProcessingParams struct {
+	TenantID    string `json:"tenant_id"`
+	Key         string `json:"key"`
+	RequestHash string `json:"request_hash"`
+}
 
 func (q *Queries) InsertProcessing(ctx context.Context, arg InsertProcessingParams) error {
 	_, err := q.db.Exec(ctx, insertProcessing, arg.TenantID, arg.Key, arg.RequestHash)
@@ -42,7 +55,14 @@ func (q *Queries) InsertProcessing(ctx context.Context, arg InsertProcessingPara
 const markCompleted = `-- name: MarkCompleted :exec
 UPDATE idempotency_records
 SET response = $3, status = 'COMPLETED'
-WHERE tenant_id = $1 AND key = $2`
+WHERE tenant_id = $1 AND key = $2
+`
+
+type MarkCompletedParams struct {
+	TenantID string `json:"tenant_id"`
+	Key      string `json:"key"`
+	Response []byte `json:"response"`
+}
 
 func (q *Queries) MarkCompleted(ctx context.Context, arg MarkCompletedParams) error {
 	_, err := q.db.Exec(ctx, markCompleted, arg.TenantID, arg.Key, arg.Response)

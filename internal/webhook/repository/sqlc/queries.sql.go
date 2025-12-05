@@ -7,11 +7,9 @@ package sqlc
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
-	"time"
 
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getWebhookByID = `-- name: GetWebhookByID :one
@@ -20,15 +18,15 @@ FROM webhooks
 WHERE id = $1
 `
 
-func (q *Queries) GetWebhookByID(ctx context.Context, id string) (Webhook, error) {
-	row := q.db.QueryRowContext(ctx, getWebhookByID, id)
-	var i Webhook
+func (q *Queries) GetWebhookByID(ctx context.Context, id string) (Webhooks, error) {
+	row := q.db.QueryRow(ctx, getWebhookByID, id)
+	var i Webhooks
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
 		&i.TargetUrl,
 		&i.Secret,
-		pq.Array(&i.EventTypes),
+		&i.EventTypes,
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -47,19 +45,19 @@ INSERT INTO webhook_delivery_attempts (
 `
 
 type InsertDeliveryAttemptParams struct {
-	WebhookID string
-	EventID   string
-	TenantID  string
-	Payload   json.RawMessage
-	Status    string
-	AttemptNo int32
-	NextRunAt time.Time
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	WebhookID string             `json:"webhook_id"`
+	EventID   string             `json:"event_id"`
+	TenantID  string             `json:"tenant_id"`
+	Payload   json.RawMessage    `json:"payload"`
+	Status    string             `json:"status"`
+	AttemptNo int32              `json:"attempt_no"`
+	NextRunAt pgtype.Timestamptz `json:"next_run_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
-func (q *Queries) InsertDeliveryAttempt(ctx context.Context, arg InsertDeliveryAttemptParams) (WebhookDeliveryAttempt, error) {
-	row := q.db.QueryRowContext(ctx, insertDeliveryAttempt,
+func (q *Queries) InsertDeliveryAttempt(ctx context.Context, arg InsertDeliveryAttemptParams) (WebhookDeliveryAttempts, error) {
+	row := q.db.QueryRow(ctx, insertDeliveryAttempt,
 		arg.WebhookID,
 		arg.EventID,
 		arg.TenantID,
@@ -70,7 +68,7 @@ func (q *Queries) InsertDeliveryAttempt(ctx context.Context, arg InsertDeliveryA
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
-	var i WebhookDeliveryAttempt
+	var i WebhookDeliveryAttempts
 	err := row.Scan(
 		&i.ID,
 		&i.WebhookID,
@@ -98,34 +96,34 @@ INSERT INTO webhooks (
 `
 
 type InsertWebhookParams struct {
-	ID         string
-	TenantID   string
-	TargetUrl  string
-	Secret     string
-	EventTypes []string
-	Enabled    bool
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	ID         string             `json:"id"`
+	TenantID   string             `json:"tenant_id"`
+	TargetUrl  string             `json:"target_url"`
+	Secret     string             `json:"secret"`
+	EventTypes []string           `json:"event_types"`
+	Enabled    bool               `json:"enabled"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 }
 
-func (q *Queries) InsertWebhook(ctx context.Context, arg InsertWebhookParams) (Webhook, error) {
-	row := q.db.QueryRowContext(ctx, insertWebhook,
+func (q *Queries) InsertWebhook(ctx context.Context, arg InsertWebhookParams) (Webhooks, error) {
+	row := q.db.QueryRow(ctx, insertWebhook,
 		arg.ID,
 		arg.TenantID,
 		arg.TargetUrl,
 		arg.Secret,
-		pq.Array(arg.EventTypes),
+		arg.EventTypes,
 		arg.Enabled,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
-	var i Webhook
+	var i Webhooks
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
 		&i.TargetUrl,
 		&i.Secret,
-		pq.Array(&i.EventTypes),
+		&i.EventTypes,
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -143,19 +141,19 @@ LIMIT $2
 `
 
 type ListDueDeliveryAttemptsParams struct {
-	NextRunAt time.Time
-	Limit     int32
+	NextRunAt pgtype.Timestamptz `json:"next_run_at"`
+	Limit     int32              `json:"limit"`
 }
 
-func (q *Queries) ListDueDeliveryAttempts(ctx context.Context, arg ListDueDeliveryAttemptsParams) ([]WebhookDeliveryAttempt, error) {
-	rows, err := q.db.QueryContext(ctx, listDueDeliveryAttempts, arg.NextRunAt, arg.Limit)
+func (q *Queries) ListDueDeliveryAttempts(ctx context.Context, arg ListDueDeliveryAttemptsParams) ([]WebhookDeliveryAttempts, error) {
+	rows, err := q.db.Query(ctx, listDueDeliveryAttempts, arg.NextRunAt, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []WebhookDeliveryAttempt
+	var items []WebhookDeliveryAttempts
 	for rows.Next() {
-		var i WebhookDeliveryAttempt
+		var i WebhookDeliveryAttempts
 		if err := rows.Scan(
 			&i.ID,
 			&i.WebhookID,
@@ -173,9 +171,6 @@ func (q *Queries) ListDueDeliveryAttempts(ctx context.Context, arg ListDueDelive
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -192,25 +187,25 @@ ORDER BY created_at DESC
 `
 
 type ListWebhooksByTenantParams struct {
-	TenantID string
-	Column2  string
+	TenantID string `json:"tenant_id"`
+	Column2  string `json:"column_2"`
 }
 
-func (q *Queries) ListWebhooksByTenant(ctx context.Context, arg ListWebhooksByTenantParams) ([]Webhook, error) {
-	rows, err := q.db.QueryContext(ctx, listWebhooksByTenant, arg.TenantID, arg.Column2)
+func (q *Queries) ListWebhooksByTenant(ctx context.Context, arg ListWebhooksByTenantParams) ([]Webhooks, error) {
+	rows, err := q.db.Query(ctx, listWebhooksByTenant, arg.TenantID, arg.Column2)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Webhook
+	var items []Webhooks
 	for rows.Next() {
-		var i Webhook
+		var i Webhooks
 		if err := rows.Scan(
 			&i.ID,
 			&i.TenantID,
 			&i.TargetUrl,
 			&i.Secret,
-			pq.Array(&i.EventTypes),
+			&i.EventTypes,
 			&i.Enabled,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -218,9 +213,6 @@ func (q *Queries) ListWebhooksByTenant(ctx context.Context, arg ListWebhooksByTe
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -240,16 +232,16 @@ WHERE webhook_delivery_attempts.id = $6
 `
 
 type MoveToDLQParams struct {
-	WebhookID string
-	EventID   string
-	TenantID  string
-	Payload   json.RawMessage
-	Reason    sql.NullString
-	ID        int64
+	WebhookID string          `json:"webhook_id"`
+	EventID   string          `json:"event_id"`
+	TenantID  string          `json:"tenant_id"`
+	Payload   json.RawMessage `json:"payload"`
+	Reason    pgtype.Text     `json:"reason"`
+	ID        int64           `json:"id"`
 }
 
 func (q *Queries) MoveToDLQ(ctx context.Context, arg MoveToDLQParams) error {
-	_, err := q.db.ExecContext(ctx, moveToDLQ,
+	_, err := q.db.Exec(ctx, moveToDLQ,
 		arg.WebhookID,
 		arg.EventID,
 		arg.TenantID,
@@ -271,15 +263,15 @@ WHERE id = $1
 `
 
 type UpdateDeliveryAttemptStatusParams struct {
-	ID        int64
-	Status    string
-	AttemptNo int32
-	NextRunAt time.Time
-	LastError sql.NullString
+	ID        int64              `json:"id"`
+	Status    string             `json:"status"`
+	AttemptNo int32              `json:"attempt_no"`
+	NextRunAt pgtype.Timestamptz `json:"next_run_at"`
+	LastError pgtype.Text        `json:"last_error"`
 }
 
 func (q *Queries) UpdateDeliveryAttemptStatus(ctx context.Context, arg UpdateDeliveryAttemptStatusParams) error {
-	_, err := q.db.ExecContext(ctx, updateDeliveryAttemptStatus,
+	_, err := q.db.Exec(ctx, updateDeliveryAttemptStatus,
 		arg.ID,
 		arg.Status,
 		arg.AttemptNo,

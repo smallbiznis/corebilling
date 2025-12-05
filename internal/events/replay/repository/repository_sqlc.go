@@ -2,25 +2,31 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"errors"
+	"strconv"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/smallbiznis/corebilling/internal/events"
-	replayrepo "github.com/smallbiznis/corebilling/internal/events/replay/repository/sqlc"
+	"github.com/smallbiznis/corebilling/internal/events/replay/repository/sqlc"
 )
 
 // NewRepository constructs a SQL-backed replay repository.
-func NewRepository(db *sql.DB) Repository {
-	return &sqlcRepository{queries: replayrepo.New(db)}
+func NewRepository(db *pgxpool.Pool) Repository {
+	return &sqlcRepository{queries: sqlc.New(db)}
 }
 
 type sqlcRepository struct {
-	queries *replayrepo.Queries
+	queries *sqlc.Queries
 }
 
 func (r *sqlcRepository) GetEventByID(ctx context.Context, id string) (EventEnvelope, error) {
-	evt, err := r.queries.GetEventByID(ctx, id)
+	parsedID, err := parseInt64(id)
+	if err != nil {
+		return EventEnvelope{}, err
+	}
+	evt, err := r.queries.GetEventByID(ctx, parsedID)
 	if err != nil {
 		return EventEnvelope{}, err
 	}
@@ -28,7 +34,11 @@ func (r *sqlcRepository) GetEventByID(ctx context.Context, id string) (EventEnve
 }
 
 func (r *sqlcRepository) ListEventsForTenant(ctx context.Context, tenantID string) ([]EventEnvelope, error) {
-	events, err := r.queries.ListEventsForTenant(ctx, tenantID)
+	parsedTenantID, err := parseInt64(tenantID)
+	if err != nil {
+		return nil, err
+	}
+	events, err := r.queries.ListEventsForTenant(ctx, parsedTenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +46,10 @@ func (r *sqlcRepository) ListEventsForTenant(ctx context.Context, tenantID strin
 }
 
 func (r *sqlcRepository) ListEventsByType(ctx context.Context, eventType string) ([]EventEnvelope, error) {
-	events, err := r.queries.ListEventsByType(ctx, eventType)
+	events, err := r.queries.ListEventsByType(ctx, pgtype.Text{
+		String: eventType,
+		Valid:  true,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -44,14 +57,41 @@ func (r *sqlcRepository) ListEventsByType(ctx context.Context, eventType string)
 }
 
 func (r *sqlcRepository) ListEventsByFilters(ctx context.Context, tenantID, eventType *string, since, until *time.Time) ([]EventEnvelope, error) {
-	events, err := r.queries.ListEventsByFilters(ctx, tenantID, eventType, since, until)
+	parsedTenantID, err := parseOptionalInt64(tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	typeParam := pgtype.Text{}
+	if eventType != nil && *eventType != "" {
+		typeParam = pgtype.Text{
+			String: *eventType,
+			Valid:  true,
+		}
+	}
+
+	sinceTime := time.Time{}
+	if since != nil {
+		sinceTime = *since
+	}
+	untilTime := time.Now().UTC()
+	if until != nil {
+		untilTime = *until
+	}
+
+	events, err := r.queries.ListEventsByFilters(ctx, sqlc.ListEventsByFiltersParams{
+		TenantID:    parsedTenantID,
+		EventType:   typeParam,
+		CreatedAt:   pgtype.Timestamptz{Time: sinceTime, Valid: true},
+		CreatedAt_2: pgtype.Timestamptz{Time: untilTime, Valid: true},
+	})
 	if err != nil {
 		return nil, err
 	}
 	return mapEnvelopes(events)
 }
 
-func mapEnvelopes(events []replayrepo.BillingEvent) ([]EventEnvelope, error) {
+func mapEnvelopes(events []sqlc.BillingEvents) ([]EventEnvelope, error) {
 	envelopes := make([]EventEnvelope, 0, len(events))
 	for _, evt := range events {
 		env, err := toEnvelope(evt)
@@ -63,7 +103,7 @@ func mapEnvelopes(events []replayrepo.BillingEvent) ([]EventEnvelope, error) {
 	return envelopes, nil
 }
 
-func toEnvelope(evt replayrepo.BillingEvent) (EventEnvelope, error) {
+func toEnvelope(evt sqlc.BillingEvents) (EventEnvelope, error) {
 	if len(evt.Payload) == 0 {
 		return EventEnvelope{}, errors.New("event payload missing")
 	}
@@ -74,32 +114,57 @@ func toEnvelope(evt replayrepo.BillingEvent) (EventEnvelope, error) {
 	}
 
 	if decoded.Id == "" {
-		decoded.Id = evt.ID
+		decoded.Id = formatInt64(evt.ID)
 	}
 	if decoded.Subject == "" {
 		decoded.Subject = evt.Subject
 	}
 	if decoded.TenantId == "" {
-		decoded.TenantId = evt.TenantID
+		decoded.TenantId = formatInt64(evt.TenantID)
 	}
 
 	env := EventEnvelope{
 		ID:        decoded.Id,
 		Subject:   evt.Subject,
-		TenantID:  evt.TenantID,
+		TenantID:  formatInt64(evt.TenantID),
 		Payload:   evt.Payload,
-		CreatedAt: evt.CreatedAt,
+		CreatedAt: pgTimestamptz(evt.CreatedAt),
 		Event:     decoded,
 	}
 
 	if evt.ResourceID.Valid {
-		env.ResourceID = evt.ResourceID.String
+		env.ResourceID = formatInt64(evt.ResourceID.Int64)
 	}
 	if evt.EventType.Valid {
 		env.EventType = evt.EventType.String
 	}
 
 	return env, nil
+}
+
+func parseInt64(value string) (int64, error) {
+	if value == "" {
+		return 0, errors.New("id required")
+	}
+	return strconv.ParseInt(value, 10, 64)
+}
+
+func parseOptionalInt64(value *string) (int64, error) {
+	if value == nil || *value == "" {
+		return 0, nil
+	}
+	return strconv.ParseInt(*value, 10, 64)
+}
+
+func formatInt64(value int64) string {
+	return strconv.FormatInt(value, 10)
+}
+
+func pgTimestamptz(ts pgtype.Timestamptz) time.Time {
+	if ts.Valid {
+		return ts.Time
+	}
+	return time.Time{}
 }
 
 var _ Repository = (*sqlcRepository)(nil)

@@ -1,9 +1,10 @@
 
 CREATE TABLE IF NOT EXISTS billing_events (
-    id              BIGSERIAL PRIMARY KEY,
+    id              BIGINT PRIMARY KEY,
     subject         TEXT NOT NULL,
-    tenant_id       TEXT NOT NULL,
-    resource_id     TEXT NULL,
+    tenant_id       BIGINT NOT NULL,
+    resource_id     BIGINT NULL,
+    event_type      TEXT NULL,
 
     payload         BYTEA NOT NULL,
 
@@ -15,6 +16,9 @@ CREATE TABLE IF NOT EXISTS billing_events (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_billing_events_event_type
+    ON billing_events(event_type);
 
 CREATE INDEX IF NOT EXISTS idx_billing_events_status
     ON billing_events(status);

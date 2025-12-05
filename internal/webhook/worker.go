@@ -3,7 +3,6 @@ package webhook
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +11,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/smallbiznis/corebilling/internal/headers"
 	"github.com/smallbiznis/corebilling/internal/telemetry"
 	"github.com/smallbiznis/corebilling/internal/webhook/repository"
@@ -136,8 +136,8 @@ func (w *Worker) recordSuccess(ctx context.Context, attempt repository.WebhookDe
 		ID:        attempt.ID,
 		Status:    statusSuccess,
 		AttemptNo: attempt.AttemptNo + 1,
-		NextRunAt: time.Now().UTC(),
-		LastError: sql.NullString{},
+		NextRunAt: toTimestamptz(time.Now().UTC()),
+		LastError: textFromError(nil),
 	})
 }
 
@@ -162,7 +162,7 @@ func (w *Worker) handleFailure(ctx context.Context, attempt repository.WebhookDe
 			EventID:   attempt.EventID,
 			TenantID:  attempt.TenantID,
 			Payload:   attempt.Payload,
-			Reason:    sql.NullString{String: err.Error(), Valid: true},
+			Reason:    textFromError(err),
 			ID:        attempt.ID,
 		}); dlqErr != nil {
 			log.Error("failed to move to DLQ", zap.Error(dlqErr))
@@ -179,8 +179,8 @@ func (w *Worker) handleFailure(ctx context.Context, attempt repository.WebhookDe
 		ID:        attempt.ID,
 		Status:    statusFailed,
 		AttemptNo: nextAttemptNo,
-		NextRunAt: nextRun,
-		LastError: sql.NullString{String: err.Error(), Valid: true},
+		NextRunAt: toTimestamptz(nextRun),
+		LastError: textFromError(err),
 	}); updateErr != nil {
 		log.Error("failed to update failed attempt", zap.Error(updateErr))
 	}
@@ -204,4 +204,21 @@ func decodeEventMeta(payload []byte) (string, string) {
 		return "", ""
 	}
 	return meta.Subject, meta.ID
+}
+
+func toTimestamptz(t time.Time) pgtype.Timestamptz {
+	return pgtype.Timestamptz{
+		Time:  t,
+		Valid: true,
+	}
+}
+
+func textFromError(err error) pgtype.Text {
+	if err == nil {
+		return pgtype.Text{}
+	}
+	return pgtype.Text{
+		String: err.Error(),
+		Valid:  true,
+	}
 }

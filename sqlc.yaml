@@ -8,6 +8,19 @@ sql:
       go:
         package: sqlc
         out: internal/billing/repository/sqlc
+        sql_package: "pgx/v5"
+        emit_exact_table_names: true
+        emit_json_tags: true
+        emit_methods_with_db_argument: false
+        overrides:
+          - db_type: "jsonb"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
+  - name: billing_event
+    engine: postgresql
+    queries: ""
+    schema: db/migrations/billing_event/up
   - name: invoice
     engine: postgresql
     queries: internal/invoice/repository/sqlc/queries.sql
@@ -48,6 +61,15 @@ sql:
       go:
         package: sqlc
         out: internal/usage/repository/sqlc
+        sql_package: "pgx/v5"
+        emit_exact_table_names: true
+        emit_json_tags: true
+        emit_methods_with_db_argument: false
+        overrides:
+          - db_type: "jsonb"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
   - name: webhook
     engine: postgresql
     queries: internal/webhook/repository/queries.sql
@@ -56,18 +78,45 @@ sql:
       go:
         package: sqlc
         out: internal/webhook/repository/sqlc
+        sql_package: "pgx/v5"
+        emit_exact_table_names: true
+        emit_json_tags: true
+        emit_methods_with_db_argument: false
+        overrides:
+          - db_type: "jsonb"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
   - name: idempotency
     engine: postgresql
     queries: internal/idempotency/queries.sql
     schema: db/migrations/idempotency/up
     gen:
       go:
-        package: idempotencysqlc
+        package: sqlc
         out: internal/idempotency/repository/sqlc
-  - schema: ""   # no new migrations
+        sql_package: "pgx/v5"
+        emit_exact_table_names: true
+        emit_json_tags: true
+        emit_methods_with_db_argument: false
+        overrides:
+          - db_type: "jsonb"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
+  - schema: db/migrations/billing_event/up
     queries: "internal/events/replay/repository/queries.sql"
     engine: "postgresql"
     gen:
       go:
-        package: "replayrepo"
+        package: "sqlc"
         out: "internal/events/replay/repository/sqlc"
+        sql_package: "pgx/v5"
+        emit_exact_table_names: true
+        emit_json_tags: true
+        emit_methods_with_db_argument: false
+        overrides:
+          - db_type: "jsonb"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"

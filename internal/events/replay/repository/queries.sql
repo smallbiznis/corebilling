@@ -19,8 +19,8 @@ ORDER BY created_at ASC;
 -- name: ListEventsByFilters :many
 SELECT *
 FROM billing_events
-WHERE ($1::TEXT IS NULL OR tenant_id = $1)
-  AND ($2::TEXT IS NULL OR event_type = $2)
-  AND ($3::TIMESTAMPTZ IS NULL OR created_at >= $3)
-  AND ($4::TIMESTAMPTZ IS NULL OR created_at <= $4)
+WHERE (tenant_id = $1)
+  AND (event_type = $2)
+  AND (created_at >= $3)
+  AND (created_at <= $4)
 ORDER BY created_at ASC;

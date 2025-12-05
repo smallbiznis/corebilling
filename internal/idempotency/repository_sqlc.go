@@ -5,21 +5,21 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	idempotencysqlc "github.com/smallbiznis/corebilling/internal/idempotency/repository/sqlc"
+	"github.com/smallbiznis/corebilling/internal/idempotency/repository/sqlc"
 )
 
 // SQLRepository implements Repository using sqlc-generated queries.
 type SQLRepository struct {
-	queries *idempotencysqlc.Queries
+	queries *sqlc.Queries
 }
 
 // NewSQLRepository constructs a new SQL-backed repository.
 func NewSQLRepository(pool *pgxpool.Pool) *SQLRepository {
-	return &SQLRepository{queries: idempotencysqlc.New(pool)}
+	return &SQLRepository{queries: sqlc.New(pool)}
 }
 
 func (r *SQLRepository) Get(ctx context.Context, tenantID, key string) (*Record, error) {
-	dbRecord, err := r.queries.GetRecord(ctx, idempotencysqlc.GetRecordParams{TenantID: tenantID, Key: key})
+	dbRecord, err := r.queries.GetRecord(ctx, sqlc.GetRecordParams{TenantID: tenantID, Key: key})
 	if err != nil {
 		return nil, err
 	}
@@ -29,13 +29,13 @@ func (r *SQLRepository) Get(ctx context.Context, tenantID, key string) (*Record,
 		RequestHash: dbRecord.RequestHash,
 		Response:    dbRecord.Response,
 		Status:      Status(dbRecord.Status),
-		CreatedAt:   dbRecord.CreatedAt,
-		UpdatedAt:   dbRecord.UpdatedAt,
+		CreatedAt:   dbRecord.CreatedAt.Time,
+		UpdatedAt:   dbRecord.UpdatedAt.Time,
 	}, nil
 }
 
 func (r *SQLRepository) InsertProcessing(ctx context.Context, tenantID, key, requestHash string) error {
-	return r.queries.InsertProcessing(ctx, idempotencysqlc.InsertProcessingParams{
+	return r.queries.InsertProcessing(ctx, sqlc.InsertProcessingParams{
 		TenantID:    tenantID,
 		Key:         key,
 		RequestHash: requestHash,
@@ -43,7 +43,7 @@ func (r *SQLRepository) InsertProcessing(ctx context.Context, tenantID, key, req
 }
 
 func (r *SQLRepository) MarkCompleted(ctx context.Context, tenantID, key string, response []byte) error {
-	return r.queries.MarkCompleted(ctx, idempotencysqlc.MarkCompletedParams{
+	return r.queries.MarkCompleted(ctx, sqlc.MarkCompletedParams{
 		TenantID: tenantID,
 		Key:      key,
 		Response: response,

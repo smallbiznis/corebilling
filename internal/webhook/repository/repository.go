@@ -2,14 +2,15 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/smallbiznis/corebilling/internal/webhook/repository/sqlc"
 )
 
-type Webhook = sqlc.Webhook
-type WebhookDeliveryAttempt = sqlc.WebhookDeliveryAttempt
+type Webhook = sqlc.Webhooks
+type WebhookDeliveryAttempt = sqlc.WebhookDeliveryAttempts
 type CreateWebhookParams = sqlc.InsertWebhookParams
 type DeliveryAttemptParams = sqlc.InsertDeliveryAttemptParams
 type UpdateDeliveryAttemptStatusParams = sqlc.UpdateDeliveryAttemptStatusParams
@@ -32,8 +33,8 @@ type repository struct {
 }
 
 // NewRepository constructs a new webhook repository backed by sqlc.
-func NewRepository(db *sql.DB) Repository {
-	return &repository{queries: sqlc.New(db)}
+func NewRepository(pool *pgxpool.Pool) Repository {
+	return &repository{queries: sqlc.New(pool)}
 }
 
 func (r *repository) CreateWebhook(ctx context.Context, arg CreateWebhookParams) (Webhook, error) {
@@ -61,8 +62,11 @@ func (r *repository) UpdateDeliveryAttemptStatus(ctx context.Context, arg Update
 
 func (r *repository) ListDueDeliveryAttempts(ctx context.Context, limit int32) ([]WebhookDeliveryAttempt, error) {
 	return r.queries.ListDueDeliveryAttempts(ctx, sqlc.ListDueDeliveryAttemptsParams{
-		NextRunAt: time.Now().UTC(),
-		Limit:     limit,
+		NextRunAt: pgtype.Timestamptz{
+			Time:  time.Now().UTC(),
+			Valid: true,
+		},
+		Limit: limit,
 	})
 }
 
