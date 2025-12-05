@@ -17,10 +17,6 @@ sql:
             go_type:
               import: "encoding/json"
               type: "RawMessage"
-  - name: billing_event
-    engine: postgresql
-    queries: ""
-    schema: db/migrations/billing_event/up
   - name: invoice
     engine: postgresql
     queries: internal/invoice/repository/sqlc/queries.sql
@@ -105,6 +101,41 @@ sql:
               import: "encoding/json"
               type: "RawMessage"
   - schema: db/migrations/billing_event/up
+    queries: ""
+    engine: "postgresql"
+  - schema: "migrations/quota/up"
+    queries: "internal/quota/repository/queries.sql"
+    engine: "postgresql"
+    gen:
+      go:
+        package: "quotarepo"
+        out: "internal/quota/repository/sqlc"
+        sql_package: "pgx/v5"
+        emit_exact_table_names: true
+        emit_json_tags: true
+        emit_methods_with_db_argument: false
+        overrides:
+          - db_type: "jsonb"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
+  - schema: "migrations/billing_cycle/up"
+    queries: "internal/billingcycle/repository/queries.sql"
+    engine: "postgresql"
+    gen:
+      go:
+        package: "billingcyclerepo"
+        out: "internal/billingcycle/repository/sqlc"
+        sql_package: "pgx/v5"
+        emit_exact_table_names: true
+        emit_json_tags: true
+        emit_methods_with_db_argument: false
+        overrides:
+          - db_type: "jsonb"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
+  - schema: "db/migrations/billing_event/up"   # no new migrations
     queries: "internal/events/replay/repository/queries.sql"
     engine: "postgresql"
     gen:

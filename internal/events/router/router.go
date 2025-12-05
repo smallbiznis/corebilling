@@ -26,6 +26,7 @@ type Router struct {
 	tracer   trace.Tracer
 	metrics  *telemetry.Metrics
 	sem      chan struct{}
+	pre      []func(context.Context, *events.Event) error
 }
 
 // NewRouter constructs a router with a consumer group identifier.
@@ -45,6 +46,14 @@ func NewRouter(bus events.Bus, logger *zap.Logger, group string, metrics *teleme
 // Register attaches a handler for a subject.
 func (r *Router) Register(subject string, handler events.Handler) {
 	r.handlers[subject] = r.wrapHandler(subject, handler)
+}
+
+// UsePreHandler registers a callback executed before each event handler.
+func (r *Router) UsePreHandler(fn func(context.Context, *events.Event) error) {
+	if fn == nil {
+		return
+	}
+	r.pre = append(r.pre, fn)
 }
 
 // Start subscribes all registered handlers.
@@ -90,6 +99,11 @@ func (r *Router) wrapHandler(subject string, h events.Handler) events.Handler {
 			zap.String("tenant_id", tenant),
 			zap.String("event_id", eventID),
 		)
+		for _, pre := range r.pre {
+			if err := pre(ctx, evt); err != nil {
+				return err
+			}
+		}
 		if tenant != "" {
 			span.SetAttributes(attribute.String("event.tenant_id", tenant))
 		}

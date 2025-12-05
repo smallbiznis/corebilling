@@ -6,17 +6,19 @@ import (
 	"github.com/smallbiznis/corebilling/internal/audit"
 	"github.com/smallbiznis/corebilling/internal/billing"
 	"github.com/smallbiznis/corebilling/internal/billing_event"
+	"github.com/smallbiznis/corebilling/internal/billingcycle"
 	"github.com/smallbiznis/corebilling/internal/config"
 	"github.com/smallbiznis/corebilling/internal/customer"
 	"github.com/smallbiznis/corebilling/internal/db"
 	"github.com/smallbiznis/corebilling/internal/eventfx"
 	"github.com/smallbiznis/corebilling/internal/invoice"
 	"github.com/smallbiznis/corebilling/internal/invoice_engine"
+	"github.com/smallbiznis/corebilling/internal/ledger"
 	"github.com/smallbiznis/corebilling/internal/log"
 	"github.com/smallbiznis/corebilling/internal/meter"
 	"github.com/smallbiznis/corebilling/internal/pricing"
+	"github.com/smallbiznis/corebilling/internal/quota"
 	"github.com/smallbiznis/corebilling/internal/rating"
-	"github.com/smallbiznis/corebilling/internal/ledger"
 	"github.com/smallbiznis/corebilling/internal/server/grpc"
 	"github.com/smallbiznis/corebilling/internal/server/http"
 	"github.com/smallbiznis/corebilling/internal/subscription"
@@ -43,6 +45,8 @@ func New() *fx.App {
 		pricing.Module,
 		meter.Module,
 		invoice_engine.Module,
+		billingcycle.Module,
+		quota.Module,
 		subscription.Module,
 		usage.Module,
 		rating.Module,
