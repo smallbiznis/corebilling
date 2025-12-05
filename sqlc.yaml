@@ -56,3 +56,11 @@ sql:
       go:
         package: sqlc
         out: internal/webhook/repository/sqlc
+  - name: idempotency
+    engine: postgresql
+    queries: internal/idempotency/queries.sql
+    schema: db/migrations/idempotency/up
+    gen:
+      go:
+        package: idempotencysqlc
+        out: internal/idempotency/repository/sqlc
