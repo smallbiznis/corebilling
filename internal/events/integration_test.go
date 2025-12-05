@@ -133,14 +133,17 @@ func (b *testBus) Close() error {
 }
 
 type inMemoryOutbox struct {
-	mu     sync.Mutex
-	events map[string]outbox.OutboxEvent
-	order  []string
+	mu         sync.Mutex
+	events     map[string]outbox.OutboxEvent
+	order      []string
+	shardID    int
+	shardTotal int
 }
 
 func newInMemoryOutbox() *inMemoryOutbox {
 	return &inMemoryOutbox{
-		events: make(map[string]outbox.OutboxEvent),
+		events:     make(map[string]outbox.OutboxEvent),
+		shardTotal: 1,
 	}
 }
 
@@ -166,7 +169,13 @@ func (o *inMemoryOutbox) FetchPendingEvents(ctx context.Context, limit int32, no
 		if len(list) >= int(limit) {
 			break
 		}
-		list = append(list, o.events[id])
+		evt := o.events[id]
+		if o.shardTotal > 1 {
+			if outbox.ShardIndex(evt.ID, o.shardTotal) != o.shardID {
+				continue
+			}
+		}
+		list = append(list, evt)
 	}
 	return list, nil
 }
@@ -193,4 +202,16 @@ func (o *inMemoryOutbox) MarkFailed(ctx context.Context, id string, nextAttemptA
 
 func (o *inMemoryOutbox) MoveToDeadLetter(ctx context.Context, id, lastError string) error {
 	return nil
+}
+
+func (o *inMemoryOutbox) ListDeadLetters(ctx context.Context, limit, offset int32) ([]outbox.OutboxEvent, error) {
+	_ = ctx
+	var list []outbox.OutboxEvent
+	for _, evt := range o.events {
+		if evt.Status != outbox.OutboxStatusDeadLetter {
+			continue
+		}
+		list = append(list, evt)
+	}
+	return list, nil
 }
