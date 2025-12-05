@@ -13,3 +13,8 @@ type OutboxRepository interface {
 	MarkFailed(ctx context.Context, id string, nextAttemptAt time.Time, lastError string, retryCount int32) error
 	MoveToDeadLetter(ctx context.Context, id string, lastError string) error
 }
+
+// DeadLetterRepository exposes read operations for DLQ events.
+type DeadLetterRepository interface {
+	ListDeadLetters(ctx context.Context, limit, offset int32) ([]OutboxEvent, error)
+}

@@ -23,14 +23,36 @@ import (
 
 // Repository implements OutboxRepository using pgx and JSONB metadata fields.
 type Repository struct {
-	pool   *pgxpool.Pool
-	tracer trace.Tracer
-	logger *zap.Logger
+	pool       *pgxpool.Pool
+	tracer     trace.Tracer
+	logger     *zap.Logger
+	shardID    int
+	shardTotal int
 }
 
 // NewRepository constructs a new outbox repository.
 func NewRepository(pool *pgxpool.Pool, logger *zap.Logger) OutboxRepository {
-	return &Repository{pool: pool, tracer: otel.Tracer("events.outbox"), logger: logger}
+	return NewRepositoryWithConfig(pool, logger, NewConfigFromEnv())
+}
+
+// NewRepositoryWithConfig constructs an outbox repository using the provided config.
+func NewRepositoryWithConfig(pool *pgxpool.Pool, logger *zap.Logger, cfg Config) OutboxRepository {
+	shardTotal := cfg.ShardTotal
+	if shardTotal < 1 {
+		shardTotal = 1
+	}
+	shardID := cfg.ShardID
+	if shardID < 0 || shardID >= shardTotal {
+		shardID = 0
+	}
+
+	return &Repository{
+		pool:       pool,
+		tracer:     otel.Tracer("events.outbox"),
+		logger:     logger,
+		shardID:    shardID,
+		shardTotal: shardTotal,
+	}
 }
 
 // InsertOutboxEvent inserts a new event into billing_events with pending status.
@@ -96,22 +118,23 @@ func (r *Repository) InsertOutboxEvent(ctx context.Context, evt *OutboxEvent) er
 // FetchPendingEvents retrieves events eligible for dispatch.
 func (r *Repository) FetchPendingEvents(ctx context.Context, limit int32, now time.Time) ([]OutboxEvent, error) {
 	rows, err := r.query(ctx, `
-        SELECT 
-					id,
-					subject,
-					tenant_id,
-					resource_id,
+        SELECT
+                                        id,
+                                        subject,
+                                        tenant_id,
+                                        resource_id,
 					payload,
 					status,
 					retry_count,
 					next_attempt_at,
-					last_error,
-					created_at
-			FROM billing_events
-			WHERE status = 'pending'
-				AND (next_attempt_at IS NULL OR next_attempt_at <= $1)
-			ORDER BY id
-			LIMIT $2;`, now, limit)
+                                        last_error,
+                                        created_at
+                        FROM billing_events
+                        WHERE status = 'pending'
+                                AND (next_attempt_at IS NULL OR next_attempt_at <= $1)
+                                AND (CASE WHEN $3 <= 1 THEN true ELSE (((('x' || substr(md5(id), 1, 16))::bit(64)::bigint) % $3) = $4) END)
+                        ORDER BY id
+                        LIMIT $2;`, now, limit, r.shardTotal, r.shardID)
 	if err != nil {
 		return nil, err
 	}
@@ -176,6 +199,53 @@ func (r *Repository) MoveToDeadLetter(ctx context.Context, id string, lastError 
 	return err
 }
 
+// ListDeadLetters returns DLQ entries in reverse chronological order.
+func (r *Repository) ListDeadLetters(ctx context.Context, limit, offset int32) ([]OutboxEvent, error) {
+	rows, err := r.query(ctx, `
+        SELECT
+                id,
+                subject,
+                tenant_id,
+                resource_id,
+                payload,
+                status,
+                retry_count,
+                next_attempt_at,
+                last_error,
+                created_at
+        FROM billing_events
+        WHERE status = 'dead_letter'
+        ORDER BY created_at DESC
+        LIMIT $1 OFFSET $2;`, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var eventsOut []OutboxEvent
+	for rows.Next() {
+		var evt OutboxEvent
+		if err := rows.Scan(&evt.ID, &evt.Subject, &evt.TenantID, &evt.ResourceID, &evt.Payload, &evt.CreatedAt); err != nil {
+			return nil, err
+		}
+		parsed, err := unmarshalEvent(evt.Payload)
+		if err != nil {
+			return nil, err
+		}
+		evt.Event = parsed
+		status, retry, nextAttempt, lastErr := ExtractMetadata(parsed)
+		evt.Status = status
+		evt.RetryCount = retry
+		evt.NextAttemptAt = nextAttempt
+		evt.LastError = lastErr
+		eventsOut = append(eventsOut, evt)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return eventsOut, nil
+}
+
 func (r *Repository) exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
 	return r.pool.Exec(ctx, sql, args...)
 }
@@ -209,3 +279,4 @@ func nullIfEmpty(val string) any {
 }
 
 var _ OutboxRepository = (*Repository)(nil)
+var _ DeadLetterRepository = (*Repository)(nil)

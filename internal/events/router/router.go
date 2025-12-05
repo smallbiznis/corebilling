@@ -2,6 +2,9 @@ package router
 
 import (
 	"context"
+	"os"
+	"runtime"
+	"strconv"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -22,10 +25,12 @@ type Router struct {
 	group    string
 	tracer   trace.Tracer
 	metrics  *telemetry.Metrics
+	sem      chan struct{}
 }
 
 // NewRouter constructs a router with a consumer group identifier.
 func NewRouter(bus events.Bus, logger *zap.Logger, group string, metrics *telemetry.Metrics) *Router {
+	concurrency := handlerConcurrency()
 	return &Router{
 		bus:      bus,
 		logger:   logger,
@@ -33,6 +38,7 @@ func NewRouter(bus events.Bus, logger *zap.Logger, group string, metrics *teleme
 		group:    group,
 		tracer:   otel.Tracer("events.router"),
 		metrics:  metrics,
+		sem:      make(chan struct{}, concurrency),
 	}
 }
 
@@ -54,6 +60,11 @@ func (r *Router) Start(ctx context.Context) error {
 
 func (r *Router) wrapHandler(subject string, h events.Handler) events.Handler {
 	return func(ctx context.Context, evt *events.Event) error {
+		if err := r.acquire(ctx); err != nil {
+			return err
+		}
+		defer r.release()
+
 		corr := ""
 		if evt != nil && evt.Metadata != nil {
 			if val, ok := evt.Metadata.Fields["correlation_id"]; ok {
@@ -100,4 +111,38 @@ func (r *Router) wrapHandler(subject string, h events.Handler) events.Handler {
 		}
 		return err
 	}
+}
+
+func (r *Router) acquire(ctx context.Context) error {
+	if r.sem == nil {
+		return nil
+	}
+	select {
+	case r.sem <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (r *Router) release() {
+	if r.sem == nil {
+		return
+	}
+	select {
+	case <-r.sem:
+	default:
+	}
+}
+
+func handlerConcurrency() int {
+	raw := os.Getenv("HANDLER_CONCURRENCY")
+	if raw == "" {
+		return runtime.NumCPU()
+	}
+	val, err := strconv.Atoi(raw)
+	if err != nil || val < 1 {
+		return runtime.NumCPU()
+	}
+	return val
 }

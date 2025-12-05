@@ -2,6 +2,7 @@ package outbox
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -19,6 +20,7 @@ type Dispatcher struct {
 	maxBackoff  time.Duration
 	limit       int32
 	metrics     *telemetry.Metrics
+	failures    *tenantFailureTracker
 }
 
 // NewDispatcher constructs a dispatcher with sane defaults.
@@ -31,6 +33,7 @@ func NewDispatcher(repo OutboxRepository, bus events.Publisher, logger *zap.Logg
 		maxBackoff:  5 * time.Minute,
 		limit:       100,
 		metrics:     metrics,
+		failures:    newTenantFailureTracker(1*time.Minute, 30*time.Second, 5),
 	}
 }
 
@@ -124,7 +127,59 @@ func (d *Dispatcher) handleFailure(ctx context.Context, evt OutboxEvent, err err
 	}
 
 	next := ComputeNextAttempt(retry, d.baseBackoff, d.maxBackoff)
+	if d.failures != nil {
+		next = d.failures.nextAttempt(evt.TenantID, next)
+	}
 	if markErr := d.repo.MarkFailed(ctx, evt.ID, next, err.Error(), retry); markErr != nil {
 		log.Error("failed to mark retry", zap.Error(markErr))
 	}
+}
+
+type tenantFailureTracker struct {
+	mu        sync.Mutex
+	window    time.Duration
+	throttle  time.Duration
+	threshold int
+	state     map[string]*tenantFailureState
+}
+
+type tenantFailureState struct {
+	count       int
+	windowStart time.Time
+}
+
+func newTenantFailureTracker(window, throttle time.Duration, threshold int) *tenantFailureTracker {
+	return &tenantFailureTracker{
+		window:    window,
+		throttle:  throttle,
+		threshold: threshold,
+		state:     make(map[string]*tenantFailureState),
+	}
+}
+
+func (t *tenantFailureTracker) nextAttempt(tenantID string, base time.Time) time.Time {
+	if tenantID == "" {
+		return base
+	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	now := time.Now()
+	entry, ok := t.state[tenantID]
+	if !ok || now.Sub(entry.windowStart) > t.window {
+		entry = &tenantFailureState{windowStart: now}
+	}
+	entry.count++
+	t.state[tenantID] = entry
+
+	if entry.count < t.threshold {
+		return base
+	}
+
+	throttleUntil := now.Add(t.throttle)
+	if throttleUntil.After(base) {
+		return throttleUntil
+	}
+	return base
 }

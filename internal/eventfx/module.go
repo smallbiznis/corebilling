@@ -23,10 +23,11 @@ var Module = fx.Options(
 		events.NewEventBusConfig,
 		eventbus.NewBus,
 		providePublisher,
-		outbox.NewRepository,
+		fx.Annotate(outbox.NewRepository, fx.As(new(outbox.OutboxRepository)), fx.As(new(outbox.DeadLetterRepository))),
 		func(repo outbox.OutboxRepository, bus events.Bus, logger *zap.Logger, metrics *telemetry.Metrics) *outbox.Dispatcher {
 			return outbox.NewDispatcher(repo, bus, logger, metrics)
 		},
+		outbox.NewDLQService,
 		func(bus events.Bus, logger *zap.Logger, cfg events.EventBusConfig, metrics *telemetry.Metrics) *router.Router {
 			group := cfg.KafkaGroupID
 			if group == "" {
