@@ -7,15 +7,23 @@ package idempotencysqlc
 
 import (
 	"context"
+
+	"github.com/sqlc-dev/pqtype"
 )
 
 const getRecord = `-- name: GetRecord :one
 SELECT tenant_id, key, request_hash, response, status, created_at, updated_at
 FROM idempotency_records
-WHERE tenant_id = $1 AND key = $2`
+WHERE tenant_id = $1 AND key = $2
+`
+
+type GetRecordParams struct {
+	TenantID string
+	Key      string
+}
 
 func (q *Queries) GetRecord(ctx context.Context, arg GetRecordParams) (IdempotencyRecord, error) {
-	row := q.db.QueryRow(ctx, getRecord, arg.TenantID, arg.Key)
+	row := q.db.QueryRowContext(ctx, getRecord, arg.TenantID, arg.Key)
 	var i IdempotencyRecord
 	err := row.Scan(
 		&i.TenantID,
@@ -32,19 +40,33 @@ func (q *Queries) GetRecord(ctx context.Context, arg GetRecordParams) (Idempoten
 const insertProcessing = `-- name: InsertProcessing :exec
 INSERT INTO idempotency_records (
     tenant_id, key, request_hash, status
-) VALUES ($1, $2, $3, 'PROCESSING')`
+) VALUES ($1, $2, $3, 'PROCESSING')
+`
+
+type InsertProcessingParams struct {
+	TenantID    string
+	Key         string
+	RequestHash string
+}
 
 func (q *Queries) InsertProcessing(ctx context.Context, arg InsertProcessingParams) error {
-	_, err := q.db.Exec(ctx, insertProcessing, arg.TenantID, arg.Key, arg.RequestHash)
+	_, err := q.db.ExecContext(ctx, insertProcessing, arg.TenantID, arg.Key, arg.RequestHash)
 	return err
 }
 
 const markCompleted = `-- name: MarkCompleted :exec
 UPDATE idempotency_records
 SET response = $3, status = 'COMPLETED'
-WHERE tenant_id = $1 AND key = $2`
+WHERE tenant_id = $1 AND key = $2
+`
+
+type MarkCompletedParams struct {
+	TenantID string
+	Key      string
+	Response pqtype.NullRawMessage
+}
 
 func (q *Queries) MarkCompleted(ctx context.Context, arg MarkCompletedParams) error {
-	_, err := q.db.Exec(ctx, markCompleted, arg.TenantID, arg.Key, arg.Response)
+	_, err := q.db.ExecContext(ctx, markCompleted, arg.TenantID, arg.Key, arg.Response)
 	return err
 }
