@@ -4,15 +4,15 @@
 
 ```mermaid
 graph TD
-    BillingAPI[Billing API] -->|publishes| Outbox[Billing Outbox]
-    Outbox -->|dispatches| EventBus[Event Bus (Kafka / NATS)]
-    EventBus --> Router[Event Router]
-    Router --> SubscriptionDomain[Subscription Service]
-    Router --> UsageDomain[Usage Service]
-    Router --> RatingDomain[Rating Service]
-    Router --> InvoiceDomain[Invoice Service]
-    Router --> WebhookEngine[Webhook Delivery Worker]
-    Router --> Scheduler[Billing Scheduler]
+    BillingAPI["Billing API"] -->|publishes| Outbox["Billing Outbox"]
+    Outbox -->|dispatches| EventBus["Event Bus (Kafka / NATS)"]
+    EventBus --> Router["Event Router"]
+    Router --> SubscriptionDomain["Subscription Service"]
+    Router --> UsageDomain["Usage Service"]
+    Router --> RatingDomain["Rating Service"]
+    Router --> InvoiceDomain["Invoice Service"]
+    Router --> WebhookEngine["Webhook Delivery Worker"]
+    Router --> Scheduler["Billing Scheduler"]
 ```
 
 ## Container Architecture
