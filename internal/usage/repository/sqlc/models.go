@@ -9,10 +9,10 @@ import (
 )
 
 type UsageRecords struct {
-	ID             string             `json:"id"`
-	TenantID       string             `json:"tenant_id"`
-	CustomerID     string             `json:"customer_id"`
-	SubscriptionID string             `json:"subscription_id"`
+	ID             int64              `json:"id"`
+	TenantID       int64              `json:"tenant_id"`
+	CustomerID     int64              `json:"customer_id"`
+	SubscriptionID int64              `json:"subscription_id"`
 	MeterCode      string             `json:"meter_code"`
 	Value          float64            `json:"value"`
 	RecordedAt     pgtype.Timestamptz `json:"recorded_at"`

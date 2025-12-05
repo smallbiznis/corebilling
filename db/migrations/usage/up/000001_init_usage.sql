@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS usage_records (
-    id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
-    customer_id TEXT NOT NULL,
-    subscription_id TEXT NOT NULL,
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    customer_id BIGINT NOT NULL,
+    subscription_id BIGINT NOT NULL,
     meter_code TEXT NOT NULL,
     value DOUBLE PRECISION NOT NULL,
     recorded_at TIMESTAMPTZ NOT NULL,

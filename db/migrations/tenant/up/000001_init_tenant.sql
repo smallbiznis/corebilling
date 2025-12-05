@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS tenants (
-    id TEXT PRIMARY KEY,
-    parent_id TEXT,
+    id BIGINT PRIMARY KEY,
+    parent_id BIGINT,
     type SMALLINT NOT NULL,
     name TEXT NOT NULL,
     slug TEXT NOT NULL,

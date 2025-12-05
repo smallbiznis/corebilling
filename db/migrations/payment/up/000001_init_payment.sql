@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS payment_methods (
-    id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
     provider SMALLINT NOT NULL,
     type SMALLINT NOT NULL,
     display_name TEXT,
@@ -17,10 +17,10 @@ CREATE INDEX IF NOT EXISTS idx_payment_methods_tenant ON payment_methods (tenant
 CREATE INDEX IF NOT EXISTS idx_payment_methods_provider ON payment_methods (provider);
 
 CREATE TABLE IF NOT EXISTS payment_attempts (
-    id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
-    invoice_id TEXT NOT NULL,
-    payment_method_id TEXT NOT NULL,
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    invoice_id BIGINT NOT NULL,
+    payment_method_id BIGINT NOT NULL,
     status SMALLINT NOT NULL,
     provider_transaction_id TEXT,
     attempted_at TIMESTAMPTZ,

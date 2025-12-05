@@ -9,6 +9,7 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -157,11 +158,21 @@ func (w *Worker) handleFailure(ctx context.Context, attempt repository.WebhookDe
 
 	nextAttemptNo := attempt.AttemptNo + 1
 	if nextAttemptNo >= w.cfg.MaxRetries {
+		webhookID, parseErr := parseSnowflake(attempt.WebhookID)
+		if parseErr != nil {
+			log.Error("failed to parse webhook id", zap.Error(parseErr))
+			return
+		}
+		eventID, parseErr := parseSnowflake(attempt.EventID)
+		if parseErr != nil {
+			log.Error("failed to parse event id", zap.Error(parseErr))
+			return
+		}
 		if dlqErr := w.repo.MoveToDLQ(ctx, repository.MoveToDLQParams{
-			WebhookID: attempt.WebhookID,
-			EventID:   attempt.EventID,
+			WebhookID: webhookID,
+			EventID:   eventID,
 			TenantID:  attempt.TenantID,
-			Payload:   attempt.Payload,
+			Payload:   json.RawMessage(attempt.Payload),
 			Reason:    textFromError(err),
 			ID:        attempt.ID,
 		}); dlqErr != nil {
@@ -221,4 +232,11 @@ func textFromError(err error) pgtype.Text {
 		String: err.Error(),
 		Valid:  true,
 	}
+}
+
+func parseSnowflake(value string) (int64, error) {
+	if value == "" {
+		return 0, fmt.Errorf("snowflake id required")
+	}
+	return strconv.ParseInt(value, 10, 64)
 }

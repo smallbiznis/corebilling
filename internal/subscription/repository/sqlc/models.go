@@ -5,27 +5,24 @@
 package sqlc
 
 import (
-	"database/sql"
-	"time"
-
-	"github.com/sqlc-dev/pqtype"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type Subscription struct {
-	ID                 string
-	TenantID           string
-	CustomerID         string
-	PriceID            string
-	Status             int16
-	AutoRenew          bool
-	StartAt            time.Time
-	CurrentPeriodStart time.Time
-	CurrentPeriodEnd   time.Time
-	TrialStartAt       sql.NullTime
-	TrialEndAt         sql.NullTime
-	CancelAt           sql.NullTime
-	CanceledAt         sql.NullTime
-	Metadata           pqtype.NullRawMessage
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+type Subscriptions struct {
+	ID                 int64              `json:"id"`
+	TenantID           int64              `json:"tenant_id"`
+	CustomerID         int64              `json:"customer_id"`
+	PriceID            int64              `json:"price_id"`
+	Status             int16              `json:"status"`
+	AutoRenew          bool               `json:"auto_renew"`
+	StartAt            pgtype.Timestamptz `json:"start_at"`
+	CurrentPeriodStart pgtype.Timestamptz `json:"current_period_start"`
+	CurrentPeriodEnd   pgtype.Timestamptz `json:"current_period_end"`
+	TrialStartAt       pgtype.Timestamptz `json:"trial_start_at"`
+	TrialEndAt         pgtype.Timestamptz `json:"trial_end_at"`
+	CancelAt           pgtype.Timestamptz `json:"cancel_at"`
+	CanceledAt         pgtype.Timestamptz `json:"canceled_at"`
+	Metadata           []byte             `json:"metadata"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }

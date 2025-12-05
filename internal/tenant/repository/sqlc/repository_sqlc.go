@@ -2,8 +2,10 @@ package sqlc
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -32,7 +34,7 @@ func (r *Repository) Create(ctx context.Context, tenant domain.Tenant) error {
 		INSERT INTO tenants (
 			id, parent_id, type, name, slug, status, default_currency, country_code, metadata, created_at, updated_at
 		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-	`, tenant.ID, nullString(tenant.ParentID), int16(tenant.Type), tenant.Name, tenant.Slug, int16(tenant.Status), nullString(tenant.DefaultCurrency), nullString(tenant.CountryCode), metadata, tenant.CreatedAt, tenant.UpdatedAt)
+	`, tenant.ID, nullInt64(tenant.ParentID), int16(tenant.Type), tenant.Name, tenant.Slug, int16(tenant.Status), nullString(tenant.DefaultCurrency), nullString(tenant.CountryCode), metadata, tenant.CreatedAt, tenant.UpdatedAt)
 	return err
 }
 
@@ -43,7 +45,7 @@ func (r *Repository) GetByID(ctx context.Context, id string) (domain.Tenant, err
 	`, id)
 
 	var tenant domain.Tenant
-	var parentID *string
+	var parentID sql.NullInt64
 	var metadata []byte
 	var typ, status int16
 	if err := row.Scan(
@@ -61,8 +63,8 @@ func (r *Repository) GetByID(ctx context.Context, id string) (domain.Tenant, err
 	); err != nil {
 		return domain.Tenant{}, err
 	}
-	if parentID != nil {
-		tenant.ParentID = *parentID
+	if parentID.Valid {
+		tenant.ParentID = parentID.Int64
 	}
 	tenant.Type = tenantv1.TenantType(typ)
 	tenant.Status = tenantv1.TenantStatus(status)
@@ -76,8 +78,12 @@ func (r *Repository) List(ctx context.Context, filter domain.ListFilter) ([]doma
 	idx := 1
 
 	if filter.ParentID != "" {
+		parsedParentID, err := strconv.ParseInt(filter.ParentID, 10, 64)
+		if err != nil {
+			return nil, err
+		}
 		conds = append(conds, fmt.Sprintf("parent_id=$%d", idx))
-		args = append(args, filter.ParentID)
+		args = append(args, parsedParentID)
 		idx++
 	}
 	if len(conds) == 0 {
@@ -112,7 +118,7 @@ func (r *Repository) List(ctx context.Context, filter domain.ListFilter) ([]doma
 	var tenants []domain.Tenant
 	for rows.Next() {
 		var tenant domain.Tenant
-		var parentID *string
+		var parentID sql.NullInt64
 		var metadata []byte
 		var typ, status int16
 		if err := rows.Scan(
@@ -130,8 +136,8 @@ func (r *Repository) List(ctx context.Context, filter domain.ListFilter) ([]doma
 		); err != nil {
 			return nil, err
 		}
-		if parentID != nil {
-			tenant.ParentID = *parentID
+		if parentID.Valid {
+			tenant.ParentID = parentID.Int64
 		}
 		tenant.Type = tenantv1.TenantType(typ)
 		tenant.Status = tenantv1.TenantStatus(status)
@@ -153,7 +159,7 @@ func (r *Repository) Update(ctx context.Context, tenant domain.Tenant) error {
 		UPDATE tenants SET parent_id=$2, type=$3, name=$4, slug=$5, status=$6,
 			default_currency=$7, country_code=$8, metadata=$9, updated_at=$10
 		WHERE id=$1
-	`, tenant.ID, nullString(tenant.ParentID), int16(tenant.Type), tenant.Name, tenant.Slug, int16(tenant.Status),
+	`, tenant.ID, nullInt64(tenant.ParentID), int16(tenant.Type), tenant.Name, tenant.Slug, int16(tenant.Status),
 		nullString(tenant.DefaultCurrency), nullString(tenant.CountryCode), metadata, tenant.UpdatedAt)
 	return err
 }
@@ -178,6 +184,13 @@ func jsonToMap(value []byte) map[string]interface{} {
 
 func nullString(value string) interface{} {
 	if value == "" {
+		return nil
+	}
+	return value
+}
+
+func nullInt64(value int64) interface{} {
+	if value <= 0 {
 		return nil
 	}
 	return value

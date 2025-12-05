@@ -19,9 +19,13 @@ import (
 // ModuleGRPC registers the subscription service.
 var ModuleGRPC = fx.Invoke(RegisterGRPC)
 
+func RegisterService(svc *domain.Service) *grpcService {
+	return &grpcService{svc: svc}
+}
+
 // RegisterGRPC attaches the subscription handler.
-func RegisterGRPC(server *grpc.Server, svc *domain.Service) {
-	subscriptionv1.RegisterSubscriptionServiceServer(server, &grpcService{svc: svc})
+func RegisterGRPC(server *grpc.Server, svc *grpcService) {
+	subscriptionv1.RegisterSubscriptionServiceServer(server, svc)
 }
 
 type grpcService struct {

@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS subscriptions (
-    id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
-    customer_id TEXT NOT NULL,
-    price_id TEXT NOT NULL,
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    customer_id BIGINT NOT NULL,
+    price_id BIGINT NOT NULL,
     status SMALLINT NOT NULL DEFAULT 0,
     auto_renew BOOLEAN NOT NULL DEFAULT FALSE,
     start_at TIMESTAMPTZ NOT NULL,

@@ -15,16 +15,16 @@ VALUES ($1,$2,$3,$4,$5,$6,now(),now())
 `
 
 type CreateRatingResultParams struct {
-	ID          int64
-	TenantID    int64
-	UsageID     int64
-	PriceID     int64
-	AmountCents int64
-	Currency    string
+	ID          int64  `json:"id"`
+	TenantID    int64  `json:"tenant_id"`
+	UsageID     int64  `json:"usage_id"`
+	PriceID     int64  `json:"price_id"`
+	AmountCents int64  `json:"amount_cents"`
+	Currency    string `json:"currency"`
 }
 
 func (q *Queries) CreateRatingResult(ctx context.Context, arg CreateRatingResultParams) error {
-	_, err := q.db.ExecContext(ctx, createRatingResult,
+	_, err := q.db.Exec(ctx, createRatingResult,
 		arg.ID,
 		arg.TenantID,
 		arg.UsageID,
@@ -39,9 +39,9 @@ const getRatingResult = `-- name: GetRatingResult :one
 SELECT id, tenant_id, usage_id, price_id, amount_cents, currency, created_at, updated_at FROM rating_results WHERE id = $1
 `
 
-func (q *Queries) GetRatingResult(ctx context.Context, id int64) (RatingResult, error) {
-	row := q.db.QueryRowContext(ctx, getRatingResult, id)
-	var i RatingResult
+func (q *Queries) GetRatingResult(ctx context.Context, id int64) (RatingResults, error) {
+	row := q.db.QueryRow(ctx, getRatingResult, id)
+	var i RatingResults
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,

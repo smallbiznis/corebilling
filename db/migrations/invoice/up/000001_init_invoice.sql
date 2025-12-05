@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS invoices (
-    id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
-    customer_id TEXT,
-    subscription_id TEXT,
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    customer_id BIGINT,
+    subscription_id BIGINT,
     status SMALLINT NOT NULL DEFAULT 0,
     currency_code TEXT NOT NULL DEFAULT 'USD',
     total_cents BIGINT NOT NULL DEFAULT 0,

@@ -2,6 +2,9 @@ package repository
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strconv"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	quotarepo "github.com/smallbiznis/corebilling/internal/quota/repository/sqlc"
@@ -18,7 +21,11 @@ func NewRepository(pool *pgxpool.Pool) Repository {
 }
 
 func (r *SQLRepository) GetQuotaLimit(ctx context.Context, tenantID string) (QuotaLimit, error) {
-	rec, err := r.queries.GetQuotaLimit(ctx, tenantID)
+	parsedTenantID, err := parseSnowflake(tenantID)
+	if err != nil {
+		return QuotaLimit{}, err
+	}
+	rec, err := r.queries.GetQuotaLimit(ctx, parsedTenantID)
 	if err != nil {
 		return QuotaLimit{}, err
 	}
@@ -27,7 +34,7 @@ func (r *SQLRepository) GetQuotaLimit(ctx context.Context, tenantID string) (Quo
 		threshold = 0
 	}
 	return QuotaLimit{
-		TenantID:             rec.TenantID,
+		TenantID:             formatSnowflake(rec.TenantID),
 		MaxEventsPerDay:      rec.MaxEventsPerDay,
 		MaxUsageUnits:        rec.MaxUsageUnits,
 		SoftWarningThreshold: threshold,
@@ -35,20 +42,32 @@ func (r *SQLRepository) GetQuotaLimit(ctx context.Context, tenantID string) (Quo
 }
 
 func (r *SQLRepository) GetQuotaUsage(ctx context.Context, tenantID string) (QuotaUsage, error) {
-	rec, err := r.queries.GetQuotaUsage(ctx, tenantID)
+	parsedTenantID, err := parseSnowflake(tenantID)
+	if err != nil {
+		return QuotaUsage{}, err
+	}
+	rec, err := r.queries.GetQuotaUsage(ctx, parsedTenantID)
+	if err != nil {
+		return QuotaUsage{}, err
+	}
+	tenantIDStr, err := formatSnowflakeFromInterface(rec.TenantID)
 	if err != nil {
 		return QuotaUsage{}, err
 	}
 	return QuotaUsage{
-		TenantID:    rec.TenantID,
+		TenantID:    tenantIDStr,
 		EventsToday: rec.EventsToday,
 		UsageUnits:  rec.UsageUnits,
 	}, nil
 }
 
 func (r *SQLRepository) UpsertQuotaUsage(ctx context.Context, params UpsertQuotaUsageParams) error {
+	tenantID, err := parseSnowflake(params.TenantID)
+	if err != nil {
+		return err
+	}
 	return r.queries.UpsertQuotaUsage(ctx, quotarepo.UpsertQuotaUsageParams{
-		TenantID:    params.TenantID,
+		TenantID:    tenantID,
 		EventsToday: params.EventsToday,
 		UsageUnits:  params.UsageUnits,
 	})
@@ -60,8 +79,38 @@ func (r *SQLRepository) ListTenantsOverLimit(ctx context.Context) ([]string, err
 		return nil, err
 	}
 	tenants := make([]string, 0, len(rows))
-	tenants = append(tenants, rows...)
+	for _, row := range rows {
+		id, err := formatSnowflakeFromInterface(row)
+		if err != nil {
+			return nil, err
+		}
+		tenants = append(tenants, id)
+	}
 	return tenants, nil
 }
 
 var _ Repository = (*SQLRepository)(nil)
+
+func parseSnowflake(value string) (int64, error) {
+	if value == "" {
+		return 0, errors.New("snowflake id required")
+	}
+	return strconv.ParseInt(value, 10, 64)
+}
+
+func formatSnowflake(value int64) string {
+	return strconv.FormatInt(value, 10)
+}
+
+func formatSnowflakeFromInterface(value interface{}) (string, error) {
+	switch v := value.(type) {
+	case int64:
+		return formatSnowflake(v), nil
+	case int32:
+		return formatSnowflake(int64(v)), nil
+	case string:
+		return v, nil
+	default:
+		return "", fmt.Errorf("unsupported tenant id type %T", v)
+	}
+}

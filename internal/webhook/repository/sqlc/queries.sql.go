@@ -18,7 +18,7 @@ FROM webhooks
 WHERE id = $1
 `
 
-func (q *Queries) GetWebhookByID(ctx context.Context, id string) (Webhooks, error) {
+func (q *Queries) GetWebhookByID(ctx context.Context, id int64) (Webhooks, error) {
 	row := q.db.QueryRow(ctx, getWebhookByID, id)
 	var i Webhooks
 	err := row.Scan(
@@ -45,9 +45,9 @@ INSERT INTO webhook_delivery_attempts (
 `
 
 type InsertDeliveryAttemptParams struct {
-	WebhookID string             `json:"webhook_id"`
-	EventID   string             `json:"event_id"`
-	TenantID  string             `json:"tenant_id"`
+	WebhookID int64              `json:"webhook_id"`
+	EventID   int64              `json:"event_id"`
+	TenantID  int64              `json:"tenant_id"`
 	Payload   json.RawMessage    `json:"payload"`
 	Status    string             `json:"status"`
 	AttemptNo int32              `json:"attempt_no"`
@@ -96,8 +96,8 @@ INSERT INTO webhooks (
 `
 
 type InsertWebhookParams struct {
-	ID         string             `json:"id"`
-	TenantID   string             `json:"tenant_id"`
+	ID         int64              `json:"id"`
+	TenantID   int64              `json:"tenant_id"`
 	TargetUrl  string             `json:"target_url"`
 	Secret     string             `json:"secret"`
 	EventTypes []string           `json:"event_types"`
@@ -187,7 +187,7 @@ ORDER BY created_at DESC
 `
 
 type ListWebhooksByTenantParams struct {
-	TenantID string `json:"tenant_id"`
+	TenantID int64  `json:"tenant_id"`
 	Column2  string `json:"column_2"`
 }
 
@@ -232,8 +232,8 @@ WHERE webhook_delivery_attempts.id = $6
 `
 
 type MoveToDLQParams struct {
-	WebhookID string          `json:"webhook_id"`
-	EventID   string          `json:"event_id"`
+	WebhookID int64           `json:"webhook_id"`
+	EventID   int64           `json:"event_id"`
 	TenantID  string          `json:"tenant_id"`
 	Payload   json.RawMessage `json:"payload"`
 	Reason    pgtype.Text     `json:"reason"`

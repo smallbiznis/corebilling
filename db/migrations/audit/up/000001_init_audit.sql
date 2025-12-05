@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS audit_events (
-    id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
     actor_type SMALLINT NOT NULL,
-    actor_id TEXT NOT NULL,
+    actor_id BIGINT NOT NULL,
     action TEXT NOT NULL,
     action_type SMALLINT NOT NULL,
     resource_type TEXT,

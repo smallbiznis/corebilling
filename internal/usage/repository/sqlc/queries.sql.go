@@ -26,10 +26,10 @@ ON CONFLICT (tenant_id, idempotency_key) DO NOTHING
 `
 
 type CreateUsageRecordParams struct {
-	ID             string             `json:"id"`
-	TenantID       string             `json:"tenant_id"`
-	CustomerID     string             `json:"customer_id"`
-	SubscriptionID string             `json:"subscription_id"`
+	ID             int64              `json:"id"`
+	TenantID       int64              `json:"tenant_id"`
+	CustomerID     int64              `json:"customer_id"`
+	SubscriptionID int64              `json:"subscription_id"`
 	MeterCode      string             `json:"meter_code"`
 	Value          float64            `json:"value"`
 	RecordedAt     pgtype.Timestamptz `json:"recorded_at"`
@@ -64,9 +64,9 @@ LIMIT $2 OFFSET $3
 `
 
 type ListUsageBySubscriptionParams struct {
-	SubscriptionID string `json:"subscription_id"`
-	Limit          int32  `json:"limit"`
-	Offset         int32  `json:"offset"`
+	SubscriptionID int64 `json:"subscription_id"`
+	Limit          int32 `json:"limit"`
+	Offset         int32 `json:"offset"`
 }
 
 func (q *Queries) ListUsageBySubscription(ctx context.Context, arg ListUsageBySubscriptionParams) ([]UsageRecords, error) {

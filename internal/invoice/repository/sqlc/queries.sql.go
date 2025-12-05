@@ -7,10 +7,8 @@ package sqlc
 
 import (
 	"context"
-	"database/sql"
-	"time"
 
-	"github.com/sqlc-dev/pqtype"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createInvoice = `-- name: CreateInvoice :exec
@@ -19,18 +17,18 @@ VALUES ($1,$2,$3,$4,$5,$6,$7,$8,now(),now())
 `
 
 type CreateInvoiceParams struct {
-	ID             string
-	TenantID       string
-	SubscriptionID sql.NullString
-	TotalCents     int64
-	Status         int16
-	IssuedAt       sql.NullTime
-	DueAt          sql.NullTime
-	Metadata       pqtype.NullRawMessage
+	ID             int64              `json:"id"`
+	TenantID       int64              `json:"tenant_id"`
+	SubscriptionID pgtype.Int8        `json:"subscription_id"`
+	TotalCents     int64              `json:"total_cents"`
+	Status         int16              `json:"status"`
+	IssuedAt       pgtype.Timestamptz `json:"issued_at"`
+	DueAt          pgtype.Timestamptz `json:"due_at"`
+	Metadata       []byte             `json:"metadata"`
 }
 
 func (q *Queries) CreateInvoice(ctx context.Context, arg CreateInvoiceParams) error {
-	_, err := q.db.ExecContext(ctx, createInvoice,
+	_, err := q.db.Exec(ctx, createInvoice,
 		arg.ID,
 		arg.TenantID,
 		arg.SubscriptionID,
@@ -48,20 +46,20 @@ SELECT id, tenant_id, subscription_id, total_cents, status, issued_at, due_at, m
 `
 
 type GetInvoiceRow struct {
-	ID             string
-	TenantID       string
-	SubscriptionID sql.NullString
-	TotalCents     int64
-	Status         int16
-	IssuedAt       sql.NullTime
-	DueAt          sql.NullTime
-	Metadata       pqtype.NullRawMessage
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID             int64              `json:"id"`
+	TenantID       int64              `json:"tenant_id"`
+	SubscriptionID pgtype.Int8        `json:"subscription_id"`
+	TotalCents     int64              `json:"total_cents"`
+	Status         int16              `json:"status"`
+	IssuedAt       pgtype.Timestamptz `json:"issued_at"`
+	DueAt          pgtype.Timestamptz `json:"due_at"`
+	Metadata       []byte             `json:"metadata"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
-func (q *Queries) GetInvoice(ctx context.Context, id string) (GetInvoiceRow, error) {
-	row := q.db.QueryRowContext(ctx, getInvoice, id)
+func (q *Queries) GetInvoice(ctx context.Context, id int64) (GetInvoiceRow, error) {
+	row := q.db.QueryRow(ctx, getInvoice, id)
 	var i GetInvoiceRow
 	err := row.Scan(
 		&i.ID,
@@ -83,20 +81,20 @@ SELECT id, tenant_id, subscription_id, total_cents, status, issued_at, due_at, m
 `
 
 type ListInvoicesByTenantRow struct {
-	ID             string
-	TenantID       string
-	SubscriptionID sql.NullString
-	TotalCents     int64
-	Status         int16
-	IssuedAt       sql.NullTime
-	DueAt          sql.NullTime
-	Metadata       pqtype.NullRawMessage
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID             int64              `json:"id"`
+	TenantID       int64              `json:"tenant_id"`
+	SubscriptionID pgtype.Int8        `json:"subscription_id"`
+	TotalCents     int64              `json:"total_cents"`
+	Status         int16              `json:"status"`
+	IssuedAt       pgtype.Timestamptz `json:"issued_at"`
+	DueAt          pgtype.Timestamptz `json:"due_at"`
+	Metadata       []byte             `json:"metadata"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
-func (q *Queries) ListInvoicesByTenant(ctx context.Context, tenantID string) ([]ListInvoicesByTenantRow, error) {
-	rows, err := q.db.QueryContext(ctx, listInvoicesByTenant, tenantID)
+func (q *Queries) ListInvoicesByTenant(ctx context.Context, tenantID int64) ([]ListInvoicesByTenantRow, error) {
+	rows, err := q.db.Query(ctx, listInvoicesByTenant, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -119,9 +117,6 @@ func (q *Queries) ListInvoicesByTenant(ctx context.Context, tenantID string) ([]
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

@@ -5,27 +5,24 @@
 package sqlc
 
 import (
-	"database/sql"
-	"time"
-
-	"github.com/sqlc-dev/pqtype"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type Invoice struct {
-	ID             string
-	TenantID       string
-	CustomerID     sql.NullString
-	SubscriptionID sql.NullString
-	Status         int16
-	CurrencyCode   string
-	TotalCents     int64
-	SubtotalCents  int64
-	TaxCents       int64
-	InvoiceNumber  sql.NullString
-	IssuedAt       sql.NullTime
-	DueAt          sql.NullTime
-	PaidAt         sql.NullTime
-	Metadata       pqtype.NullRawMessage
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+type Invoices struct {
+	ID             int64              `json:"id"`
+	TenantID       int64              `json:"tenant_id"`
+	CustomerID     pgtype.Int8        `json:"customer_id"`
+	SubscriptionID pgtype.Int8        `json:"subscription_id"`
+	Status         int16              `json:"status"`
+	CurrencyCode   string             `json:"currency_code"`
+	TotalCents     int64              `json:"total_cents"`
+	SubtotalCents  int64              `json:"subtotal_cents"`
+	TaxCents       int64              `json:"tax_cents"`
+	InvoiceNumber  pgtype.Text        `json:"invoice_number"`
+	IssuedAt       pgtype.Timestamptz `json:"issued_at"`
+	DueAt          pgtype.Timestamptz `json:"due_at"`
+	PaidAt         pgtype.Timestamptz `json:"paid_at"`
+	Metadata       []byte             `json:"metadata"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }

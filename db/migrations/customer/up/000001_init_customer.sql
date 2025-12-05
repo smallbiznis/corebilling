@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS customers (
-    id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
     external_reference TEXT,
     email TEXT,
     name TEXT,

@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS notification_templates (
-    id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
     name TEXT NOT NULL,
     channel SMALLINT NOT NULL,
     subject TEXT,

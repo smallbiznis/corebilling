@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS idempotency_records (
-    tenant_id       TEXT NOT NULL,
+    tenant_id       BIGINT NOT NULL,
     key             TEXT NOT NULL,
     request_hash    TEXT NOT NULL,
     response        JSONB,

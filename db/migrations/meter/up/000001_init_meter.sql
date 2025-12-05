@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS meters (
-    id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
     code TEXT NOT NULL,
     aggregation SMALLINT NOT NULL DEFAULT 0,
     transform SMALLINT NOT NULL DEFAULT 0,

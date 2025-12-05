@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS billing_events (
     id              BIGINT PRIMARY KEY,
     subject         TEXT NOT NULL,
     tenant_id       BIGINT NOT NULL,
-    resource_id     BIGINT NULL,
+    resource_id     TEXT NULL,
     event_type      TEXT NULL,
 
     payload         BYTEA NOT NULL,

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/bwmarrin/snowflake"
 	tenantv1 "github.com/smallbiznis/go-genproto/smallbiznis/tenant/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -20,22 +21,25 @@ type Service struct {
 	tenantv1.UnimplementedTenantServiceServer
 	repo   Repository
 	logger *zap.Logger
+
+	genID *snowflake.Node
 }
 
 // NewService constructs a tenant service.
-func NewService(repo Repository, logger *zap.Logger) *Service {
-	return &Service{repo: repo, logger: logger.Named("tenant.service")}
+func NewService(repo Repository, logger *zap.Logger, genID *snowflake.Node) *Service {
+	return &Service{repo: repo, logger: logger.Named("tenant.service"), genID: genID}
 }
 
 func (s *Service) CreateTenant(ctx context.Context, req *tenantv1.CreateTenantRequest) (*tenantv1.Tenant, error) {
 	if req == nil || req.GetName() == "" || req.GetSlug() == "" {
 		return nil, status.Error(codes.InvalidArgument, "name and slug are required")
 	}
+
 	now := time.Now().UTC()
+	tenantID := s.genID.Generate()
 	tenant := Tenant{
-		ID:              strconv.FormatInt(time.Now().UnixNano(), 10),
-		ParentID:        req.GetParentId(),
-		Type:            tenantv1.TenantType_TENANT_TYPE_CONNECTED_ACCOUNT,
+		ID:              tenantID.Int64(),
+		Type:            tenantv1.TenantType_TENANT_TYPE_PLATFORM,
 		Name:            req.GetName(),
 		Slug:            req.GetSlug(),
 		Status:          tenantv1.TenantStatus_TENANT_STATUS_ACTIVE,
@@ -44,6 +48,16 @@ func (s *Service) CreateTenant(ctx context.Context, req *tenantv1.CreateTenantRe
 		Metadata:        structToMap(req.GetMetadata()),
 		CreatedAt:       now,
 		UpdatedAt:       now,
+	}
+
+	if req.GetParentId() != "" {
+		parentID, err := snowflake.ParseString(req.GetParentId())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid parent_id")
+		}
+
+		tenant.ParentID = parentID.Int64()
+		tenant.Type = tenantv1.TenantType_TENANT_TYPE_CONNECTED_ACCOUNT
 	}
 
 	if err := s.repo.Create(ctx, tenant); err != nil {
@@ -126,9 +140,8 @@ func (s *Service) UpdateTenant(ctx context.Context, req *tenantv1.UpdateTenantRe
 
 func (s *Service) toProto(t Tenant) *tenantv1.Tenant {
 	metadata, _ := structpb.NewStruct(t.Metadata)
-	return &tenantv1.Tenant{
-		Id:              t.ID,
-		ParentId:        t.ParentID,
+	tenant := &tenantv1.Tenant{
+		Id:              strconv.FormatInt(t.ID, 10),
 		Type:            t.Type,
 		Name:            t.Name,
 		Slug:            t.Slug,
@@ -139,6 +152,12 @@ func (s *Service) toProto(t Tenant) *tenantv1.Tenant {
 		CreatedAt:       timestamppb.New(t.CreatedAt),
 		UpdatedAt:       timestamppb.New(t.UpdatedAt),
 	}
+
+	if t.ParentID > 0 {
+
+	}
+
+	return tenant
 }
 
 func structToMap(value *structpb.Struct) map[string]interface{} {

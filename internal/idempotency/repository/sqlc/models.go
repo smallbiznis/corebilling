@@ -9,7 +9,7 @@ import (
 )
 
 type IdempotencyRecords struct {
-	TenantID    string             `json:"tenant_id"`
+	TenantID    int64              `json:"tenant_id"`
 	Key         string             `json:"key"`
 	RequestHash string             `json:"request_hash"`
 	Response    []byte             `json:"response"`

@@ -5,16 +5,16 @@
 package sqlc
 
 import (
-	"time"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type RatingResult struct {
-	ID          int64
-	TenantID    int64
-	UsageID     int64
-	PriceID     int64
-	AmountCents int64
-	Currency    string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+type RatingResults struct {
+	ID          int64              `json:"id"`
+	TenantID    int64              `json:"tenant_id"`
+	UsageID     int64              `json:"usage_id"`
+	PriceID     int64              `json:"price_id"`
+	AmountCents int64              `json:"amount_cents"`
+	Currency    string             `json:"currency"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }

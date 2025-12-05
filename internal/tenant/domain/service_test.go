@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/bwmarrin/snowflake"
 	"github.com/golang/mock/gomock"
 	tenantmock "github.com/smallbiznis/corebilling/internal/mocks/tenant"
 	domain "github.com/smallbiznis/corebilling/internal/tenant/domain"
@@ -22,12 +23,16 @@ func TestService_CreateTenant(t *testing.T) {
 		return nil
 	}).Times(1)
 
-	service := domain.NewService(mockRepo, zap.NewNop())
+	node, err := snowflake.NewNode(1)
+	if err != nil {
+		t.Fatalf("failed to create snowflake node: %v", err)
+	}
+	service := domain.NewService(mockRepo, zap.NewNop(), node)
 	req := &tenantv1.CreateTenantRequest{
 		Name: "acme",
 		Slug: "acme-platform",
 	}
-	_, err := service.CreateTenant(context.Background(), req)
+	_, err = service.CreateTenant(context.Background(), req)
 	if err != nil {
 		t.Fatalf("CreateTenant returned error %v", err)
 	}
@@ -41,7 +46,7 @@ func TestService_UpdateTenant(t *testing.T) {
 	defer ctrl.Finish()
 
 	existing := domain.Tenant{
-		ID:     "123",
+		ID:     123,
 		Name:   "old",
 		Slug:   "old",
 		Status: tenantv1.TenantStatus_TENANT_STATUS_ACTIVE,
@@ -54,13 +59,17 @@ func TestService_UpdateTenant(t *testing.T) {
 		return nil
 	}).Times(1)
 
-	service := domain.NewService(repo, zap.NewNop())
+	node, err := snowflake.NewNode(1)
+	if err != nil {
+		t.Fatalf("failed to create snowflake node: %v", err)
+	}
+	service := domain.NewService(repo, zap.NewNop(), node)
 	req := &tenantv1.UpdateTenantRequest{
 		Id:   "123",
 		Name: "new-name",
 		Slug: "new-slug",
 	}
-	_, err := service.UpdateTenant(context.Background(), req)
+	_, err = service.UpdateTenant(context.Background(), req)
 	if err != nil {
 		t.Fatalf("UpdateTenant returned %v", err)
 	}

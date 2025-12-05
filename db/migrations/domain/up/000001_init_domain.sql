@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS domains (
-    id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
     domain TEXT NOT NULL,
     verification_method SMALLINT NOT NULL,
     verification_status SMALLINT NOT NULL,

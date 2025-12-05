@@ -4,8 +4,8 @@ import "time"
 
 // Customer represents a tenant-side end customer.
 type Customer struct {
-	ID                string
-	TenantID          string
+	ID                int64
+	TenantID          int64
 	ExternalReference string
 	Email             string
 	Name              string

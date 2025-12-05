@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/bwmarrin/snowflake"
 	meterv1 "github.com/smallbiznis/go-genproto/smallbiznis/meter/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -18,11 +19,13 @@ type Service struct {
 	meterv1.UnimplementedMeterServiceServer
 	repo   Repository
 	logger *zap.Logger
+
+	genID *snowflake.Node
 }
 
 // NewService constructs a meter service.
-func NewService(repo Repository, logger *zap.Logger) *Service {
-	return &Service{repo: repo, logger: logger.Named("meter.service")}
+func NewService(repo Repository, logger *zap.Logger, genID *snowflake.Node) *Service {
+	return &Service{repo: repo, logger: logger.Named("meter.service"), genID: genID}
 }
 
 func (s *Service) CreateMeter(ctx context.Context, req *meterv1.CreateMeterRequest) (*meterv1.CreateMeterResponse, error) {
@@ -30,15 +33,17 @@ func (s *Service) CreateMeter(ctx context.Context, req *meterv1.CreateMeterReque
 	if payload == nil || payload.GetTenantId() == "" || payload.GetCode() == "" {
 		return nil, status.Error(codes.InvalidArgument, "meter tenant and code required")
 	}
-	id := payload.GetId()
-	if id == "" {
-		id = strconv.FormatInt(time.Now().UnixNano(), 10)
+
+	tenantID, err := snowflake.ParseString(payload.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenantId")
 	}
 
 	now := time.Now().UTC()
+	meterID := s.genID.Generate()
 	meter := Meter{
-		ID:          id,
-		TenantID:    payload.GetTenantId(),
+		ID:          meterID.String(),
+		TenantID:    tenantID.String(),
 		Code:        payload.GetCode(),
 		Aggregation: int32(payload.GetAggregation()),
 		Transform:   int32(payload.GetTransform()),

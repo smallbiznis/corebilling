@@ -36,9 +36,9 @@ func NewEventBusConfig() EventBusConfig {
 	provider := EventBusProvider(strings.ToLower(getenv("EVENT_BUS_PROVIDER", "noop")))
 	return EventBusConfig{
 		Provider:          provider,
-		NATSURL:           getenv("NATS_URL", ""),
-		NATSUsername:      getenv("NATS_USERNAME", ""),
-		NATSPassword:      getenv("NATS_PASSWORD", ""),
+		NATSURL:           getenv("NATS_URL", "nats://localhost"),
+		NATSUsername:      getenv("NATS_USERNAME", "natsuser"),
+		NATSPassword:      getenv("NATS_PASSWORD", "natspassword"),
 		NATSStream:        getenv("NATS_STREAM", "corebilling"),
 		KafkaBrokers:      parseCSV(getenv("KAFKA_BROKERS", "")),
 		KafkaSASLUsername: getenv("KAFKA_SASL_USERNAME", ""),

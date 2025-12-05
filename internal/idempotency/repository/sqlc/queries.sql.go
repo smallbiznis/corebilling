@@ -16,7 +16,7 @@ WHERE tenant_id = $1 AND key = $2
 `
 
 type GetRecordParams struct {
-	TenantID string `json:"tenant_id"`
+	TenantID int64  `json:"tenant_id"`
 	Key      string `json:"key"`
 }
 
@@ -42,7 +42,7 @@ INSERT INTO idempotency_records (
 `
 
 type InsertProcessingParams struct {
-	TenantID    string `json:"tenant_id"`
+	TenantID    int64  `json:"tenant_id"`
 	Key         string `json:"key"`
 	RequestHash string `json:"request_hash"`
 }
@@ -59,7 +59,7 @@ WHERE tenant_id = $1 AND key = $2
 `
 
 type MarkCompletedParams struct {
-	TenantID string `json:"tenant_id"`
+	TenantID int64  `json:"tenant_id"`
 	Key      string `json:"key"`
 	Response []byte `json:"response"`
 }

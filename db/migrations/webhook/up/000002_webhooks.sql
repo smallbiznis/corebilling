@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS webhooks (
-    id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
     target_url TEXT NOT NULL,
     secret TEXT NOT NULL,
     event_types TEXT[] NOT NULL,
@@ -12,10 +12,10 @@ CREATE TABLE IF NOT EXISTS webhooks (
 CREATE INDEX IF NOT EXISTS idx_webhooks_tenant ON webhooks (tenant_id);
 
 CREATE TABLE IF NOT EXISTS webhook_delivery_attempts (
-    id BIGSERIAL PRIMARY KEY,
-    webhook_id TEXT NOT NULL REFERENCES webhooks(id) ON DELETE CASCADE,
-    event_id TEXT NOT NULL,
-    tenant_id TEXT NOT NULL,
+    id BIGINT PRIMARY KEY,
+    webhook_id BIGINT NOT NULL REFERENCES webhooks(id) ON DELETE CASCADE,
+    event_id BIGINT NOT NULL,
+    tenant_id BIGINT NOT NULL,
     payload JSONB NOT NULL,
     status TEXT NOT NULL,
     attempt_no INT NOT NULL,
@@ -26,9 +26,9 @@ CREATE TABLE IF NOT EXISTS webhook_delivery_attempts (
 );
 
 CREATE TABLE IF NOT EXISTS webhook_dlq (
-    id BIGSERIAL PRIMARY KEY,
-    webhook_id TEXT NOT NULL,
-    event_id TEXT NOT NULL,
+    id BIGINT PRIMARY KEY,
+    webhook_id BIGINT NOT NULL,
+    event_id BIGINT NOT NULL,
     tenant_id TEXT NOT NULL,
     payload JSONB NOT NULL,
     reason TEXT,

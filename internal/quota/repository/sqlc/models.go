@@ -9,7 +9,7 @@ import (
 )
 
 type TenantQuotaLimits struct {
-	TenantID             string             `json:"tenant_id"`
+	TenantID             int64              `json:"tenant_id"`
 	MaxEventsPerDay      int64              `json:"max_events_per_day"`
 	MaxUsageUnits        int64              `json:"max_usage_units"`
 	SoftWarningThreshold pgtype.Float8      `json:"soft_warning_threshold"`
@@ -18,7 +18,7 @@ type TenantQuotaLimits struct {
 }
 
 type TenantQuotaUsage struct {
-	TenantID    string             `json:"tenant_id"`
+	TenantID    interface{}        `json:"tenant_id"`
 	EventsToday int64              `json:"events_today"`
 	UsageUnits  int64              `json:"usage_units"`
 	ResetAt     pgtype.Timestamptz `json:"reset_at"`

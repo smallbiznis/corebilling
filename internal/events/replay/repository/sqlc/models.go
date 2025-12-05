@@ -12,7 +12,7 @@ type BillingEvents struct {
 	ID            int64              `json:"id"`
 	Subject       string             `json:"subject"`
 	TenantID      int64              `json:"tenant_id"`
-	ResourceID    pgtype.Int8        `json:"resource_id"`
+	ResourceID    pgtype.Text        `json:"resource_id"`
 	EventType     pgtype.Text        `json:"event_type"`
 	Payload       []byte             `json:"payload"`
 	Status        string             `json:"status"`

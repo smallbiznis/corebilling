@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS webhook_subscriptions (
-    id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
     url TEXT NOT NULL,
     status SMALLINT NOT NULL DEFAULT 0,
     secret TEXT,
@@ -12,9 +12,9 @@ CREATE TABLE IF NOT EXISTS webhook_subscriptions (
 CREATE INDEX IF NOT EXISTS idx_webhook_subscriptions_tenant ON webhook_subscriptions (tenant_id);
 
 CREATE TABLE IF NOT EXISTS webhook_deliveries (
-    id TEXT PRIMARY KEY,
-    subscription_id TEXT NOT NULL,
-    event_id TEXT NOT NULL,
+    id BIGINT PRIMARY KEY,
+    subscription_id BIGINT NOT NULL,
+    event_id BIGINT NOT NULL,
     status SMALLINT NOT NULL DEFAULT 0,
     response_status INTEGER,
     response_body TEXT,

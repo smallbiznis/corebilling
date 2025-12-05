@@ -8,8 +8,8 @@ import (
 
 // Tenant describes an account in the core billing platform.
 type Tenant struct {
-	ID              string
-	ParentID        string
+	ID              int64
+	ParentID        int64
 	Type            tenantv1.TenantType
 	Name            string
 	Slug            string

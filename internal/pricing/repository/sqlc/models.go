@@ -5,49 +5,46 @@
 package sqlc
 
 import (
-	"database/sql"
-	"time"
-
-	"github.com/sqlc-dev/pqtype"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type Price struct {
-	ID                   int64
-	TenantID             int64
-	ProductID            int64
-	Code                 string
-	LookupKey            sql.NullString
-	PricingModel         int16
-	Currency             string
-	UnitAmountCents      int64
-	BillingInterval      int16
-	BillingIntervalCount int32
-	Active               bool
-	Metadata             pqtype.NullRawMessage
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
+type PriceTiers struct {
+	ID              int64              `json:"id"`
+	PriceID         int64              `json:"price_id"`
+	StartQuantity   float64            `json:"start_quantity"`
+	EndQuantity     float64            `json:"end_quantity"`
+	UnitAmountCents int64              `json:"unit_amount_cents"`
+	Unit            string             `json:"unit"`
+	Metadata        []byte             `json:"metadata"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
-type PriceTier struct {
-	ID              int64
-	PriceID         int64
-	StartQuantity   float64
-	EndQuantity     float64
-	UnitAmountCents int64
-	Unit            string
-	Metadata        pqtype.NullRawMessage
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+type Prices struct {
+	ID                   int64              `json:"id"`
+	TenantID             int64              `json:"tenant_id"`
+	ProductID            int64              `json:"product_id"`
+	Code                 string             `json:"code"`
+	LookupKey            pgtype.Text        `json:"lookup_key"`
+	PricingModel         int16              `json:"pricing_model"`
+	Currency             string             `json:"currency"`
+	UnitAmountCents      int64              `json:"unit_amount_cents"`
+	BillingInterval      int16              `json:"billing_interval"`
+	BillingIntervalCount int32              `json:"billing_interval_count"`
+	Active               bool               `json:"active"`
+	Metadata             []byte             `json:"metadata"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }
 
-type Product struct {
-	ID          int64
-	TenantID    int64
-	Name        string
-	Code        string
-	Description sql.NullString
-	Active      bool
-	Metadata    pqtype.NullRawMessage
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+type Products struct {
+	ID          int64              `json:"id"`
+	TenantID    int64              `json:"tenant_id"`
+	Name        string             `json:"name"`
+	Code        string             `json:"code"`
+	Description pgtype.Text        `json:"description"`
+	Active      bool               `json:"active"`
+	Metadata    []byte             `json:"metadata"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }

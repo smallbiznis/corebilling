@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS tax_rules (
-    id TEXT PRIMARY KEY,
+    id BIGINT PRIMARY KEY,
     region_code TEXT NOT NULL,
     name TEXT NOT NULL,
     rate_percent DOUBLE PRECISION NOT NULL,

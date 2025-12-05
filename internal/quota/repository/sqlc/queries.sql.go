@@ -13,7 +13,7 @@ const getQuotaLimit = `-- name: GetQuotaLimit :one
 SELECT tenant_id, max_events_per_day, max_usage_units, soft_warning_threshold, created_at, updated_at FROM tenant_quota_limits WHERE tenant_id = $1 LIMIT 1
 `
 
-func (q *Queries) GetQuotaLimit(ctx context.Context, tenantID string) (TenantQuotaLimits, error) {
+func (q *Queries) GetQuotaLimit(ctx context.Context, tenantID int64) (TenantQuotaLimits, error) {
 	row := q.db.QueryRow(ctx, getQuotaLimit, tenantID)
 	var i TenantQuotaLimits
 	err := row.Scan(
@@ -31,7 +31,7 @@ const getQuotaUsage = `-- name: GetQuotaUsage :one
 SELECT tenant_id, events_today, usage_units, reset_at, updated_at FROM tenant_quota_usage WHERE tenant_id = $1 LIMIT 1
 `
 
-func (q *Queries) GetQuotaUsage(ctx context.Context, tenantID string) (TenantQuotaUsage, error) {
+func (q *Queries) GetQuotaUsage(ctx context.Context, tenantID interface{}) (TenantQuotaUsage, error) {
 	row := q.db.QueryRow(ctx, getQuotaUsage, tenantID)
 	var i TenantQuotaUsage
 	err := row.Scan(
@@ -53,15 +53,15 @@ WHERE events_today > max_events_per_day
    OR usage_units > max_usage_units
 `
 
-func (q *Queries) ListTenantsOverLimit(ctx context.Context) ([]string, error) {
+func (q *Queries) ListTenantsOverLimit(ctx context.Context) ([]interface{}, error) {
 	rows, err := q.db.Query(ctx, listTenantsOverLimit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []interface{}
 	for rows.Next() {
-		var tenant_id string
+		var tenant_id interface{}
 		if err := rows.Scan(&tenant_id); err != nil {
 			return nil, err
 		}
@@ -81,9 +81,9 @@ DO UPDATE SET events_today = $2, usage_units = $3, updated_at = now()
 `
 
 type UpsertQuotaUsageParams struct {
-	TenantID    string `json:"tenant_id"`
-	EventsToday int64  `json:"events_today"`
-	UsageUnits  int64  `json:"usage_units"`
+	TenantID    interface{} `json:"tenant_id"`
+	EventsToday int64       `json:"events_today"`
+	UsageUnits  int64       `json:"usage_units"`
 }
 
 func (q *Queries) UpsertQuotaUsage(ctx context.Context, arg UpsertQuotaUsageParams) error {

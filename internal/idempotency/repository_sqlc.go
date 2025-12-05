@@ -2,6 +2,8 @@ package idempotency
 
 import (
 	"context"
+	"errors"
+	"strconv"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -19,12 +21,16 @@ func NewSQLRepository(pool *pgxpool.Pool) *SQLRepository {
 }
 
 func (r *SQLRepository) Get(ctx context.Context, tenantID, key string) (*Record, error) {
-	dbRecord, err := r.queries.GetRecord(ctx, sqlc.GetRecordParams{TenantID: tenantID, Key: key})
+	parsedTenantID, err := parseSnowflake(tenantID)
+	if err != nil {
+		return nil, err
+	}
+	dbRecord, err := r.queries.GetRecord(ctx, sqlc.GetRecordParams{TenantID: parsedTenantID, Key: key})
 	if err != nil {
 		return nil, err
 	}
 	return &Record{
-		TenantID:    dbRecord.TenantID,
+		TenantID:    formatSnowflake(dbRecord.TenantID),
 		Key:         dbRecord.Key,
 		RequestHash: dbRecord.RequestHash,
 		Response:    dbRecord.Response,
@@ -35,19 +41,38 @@ func (r *SQLRepository) Get(ctx context.Context, tenantID, key string) (*Record,
 }
 
 func (r *SQLRepository) InsertProcessing(ctx context.Context, tenantID, key, requestHash string) error {
+	parsedTenantID, err := parseSnowflake(tenantID)
+	if err != nil {
+		return err
+	}
 	return r.queries.InsertProcessing(ctx, sqlc.InsertProcessingParams{
-		TenantID:    tenantID,
+		TenantID:    parsedTenantID,
 		Key:         key,
 		RequestHash: requestHash,
 	})
 }
 
 func (r *SQLRepository) MarkCompleted(ctx context.Context, tenantID, key string, response []byte) error {
+	parsedTenantID, err := parseSnowflake(tenantID)
+	if err != nil {
+		return err
+	}
 	return r.queries.MarkCompleted(ctx, sqlc.MarkCompletedParams{
-		TenantID: tenantID,
+		TenantID: parsedTenantID,
 		Key:      key,
 		Response: response,
 	})
 }
 
 var _ Repository = (*SQLRepository)(nil)
+
+func parseSnowflake(value string) (int64, error) {
+	if value == "" {
+		return 0, errors.New("snowflake id required")
+	}
+	return strconv.ParseInt(value, 10, 64)
+}
+
+func formatSnowflake(value int64) string {
+	return strconv.FormatInt(value, 10)
+}

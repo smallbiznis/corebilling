@@ -11,9 +11,9 @@ import (
 )
 
 type WebhookDeliveries struct {
-	ID             string             `json:"id"`
-	SubscriptionID string             `json:"subscription_id"`
-	EventID        string             `json:"event_id"`
+	ID             int64              `json:"id"`
+	SubscriptionID int64              `json:"subscription_id"`
+	EventID        int64              `json:"event_id"`
 	Status         int16              `json:"status"`
 	ResponseStatus pgtype.Int4        `json:"response_status"`
 	ResponseBody   pgtype.Text        `json:"response_body"`
@@ -23,9 +23,9 @@ type WebhookDeliveries struct {
 
 type WebhookDeliveryAttempts struct {
 	ID        int64              `json:"id"`
-	WebhookID string             `json:"webhook_id"`
-	EventID   string             `json:"event_id"`
-	TenantID  string             `json:"tenant_id"`
+	WebhookID int64              `json:"webhook_id"`
+	EventID   int64              `json:"event_id"`
+	TenantID  int64              `json:"tenant_id"`
 	Payload   json.RawMessage    `json:"payload"`
 	Status    string             `json:"status"`
 	AttemptNo int32              `json:"attempt_no"`
@@ -37,8 +37,8 @@ type WebhookDeliveryAttempts struct {
 
 type WebhookDlq struct {
 	ID        int64              `json:"id"`
-	WebhookID string             `json:"webhook_id"`
-	EventID   string             `json:"event_id"`
+	WebhookID int64              `json:"webhook_id"`
+	EventID   int64              `json:"event_id"`
 	TenantID  string             `json:"tenant_id"`
 	Payload   json.RawMessage    `json:"payload"`
 	Reason    pgtype.Text        `json:"reason"`
@@ -46,8 +46,8 @@ type WebhookDlq struct {
 }
 
 type WebhookSubscriptions struct {
-	ID         string             `json:"id"`
-	TenantID   string             `json:"tenant_id"`
+	ID         int64              `json:"id"`
+	TenantID   int64              `json:"tenant_id"`
 	Url        string             `json:"url"`
 	Status     int16              `json:"status"`
 	Secret     pgtype.Text        `json:"secret"`
@@ -57,8 +57,8 @@ type WebhookSubscriptions struct {
 }
 
 type Webhooks struct {
-	ID         string             `json:"id"`
-	TenantID   string             `json:"tenant_id"`
+	ID         int64              `json:"id"`
+	TenantID   int64              `json:"tenant_id"`
 	TargetUrl  string             `json:"target_url"`
 	Secret     string             `json:"secret"`
 	EventTypes []string           `json:"event_types"`

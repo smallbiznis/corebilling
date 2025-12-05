@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS tenant_quota_limits (
-    tenant_id TEXT PRIMARY KEY,
+    tenant_id BIGINT PRIMARY KEY,
     max_events_per_day BIGINT NOT NULL,
     max_usage_units BIGINT NOT NULL,
     soft_warning_threshold FLOAT DEFAULT 0.8,
@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS tenant_quota_limits (
 );
 
 CREATE TABLE IF NOT EXISTS tenant_quota_usage (
-    tenant_id TEXT PRIMARY KEY,
+    tenant_id TEBIGINTXT PRIMARY KEY,
     events_today BIGINT NOT NULL DEFAULT 0,
     usage_units BIGINT NOT NULL DEFAULT 0,
     reset_at TIMESTAMPTZ,

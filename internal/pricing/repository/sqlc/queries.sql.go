@@ -7,9 +7,8 @@ package sqlc
 
 import (
 	"context"
-	"database/sql"
 
-	"github.com/sqlc-dev/pqtype"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getPriceByID = `-- name: GetPriceByID :one
@@ -19,13 +18,13 @@ WHERE tenant_id = $1 AND id = $2
 `
 
 type GetPriceByIDParams struct {
-	TenantID int64
-	ID       int64
+	TenantID int64 `json:"tenant_id"`
+	ID       int64 `json:"id"`
 }
 
-func (q *Queries) GetPriceByID(ctx context.Context, arg GetPriceByIDParams) (Price, error) {
-	row := q.db.QueryRowContext(ctx, getPriceByID, arg.TenantID, arg.ID)
-	var i Price
+func (q *Queries) GetPriceByID(ctx context.Context, arg GetPriceByIDParams) (Prices, error) {
+	row := q.db.QueryRow(ctx, getPriceByID, arg.TenantID, arg.ID)
+	var i Prices
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
@@ -52,13 +51,13 @@ WHERE tenant_id = $1 AND id = $2
 `
 
 type GetProductByIDParams struct {
-	TenantID int64
-	ID       int64
+	TenantID int64 `json:"tenant_id"`
+	ID       int64 `json:"id"`
 }
 
-func (q *Queries) GetProductByID(ctx context.Context, arg GetProductByIDParams) (Product, error) {
-	row := q.db.QueryRowContext(ctx, getProductByID, arg.TenantID, arg.ID)
-	var i Product
+func (q *Queries) GetProductByID(ctx context.Context, arg GetProductByIDParams) (Products, error) {
+	row := q.db.QueryRow(ctx, getProductByID, arg.TenantID, arg.ID)
+	var i Products
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
@@ -88,22 +87,22 @@ INSERT INTO prices (
 `
 
 type InsertPriceParams struct {
-	ID                   int64
-	TenantID             int64
-	ProductID            int64
-	Code                 string
-	LookupKey            sql.NullString
-	PricingModel         int16
-	Currency             string
-	UnitAmountCents      int64
-	BillingInterval      int16
-	BillingIntervalCount int32
-	Active               bool
-	Metadata             pqtype.NullRawMessage
+	ID                   int64       `json:"id"`
+	TenantID             int64       `json:"tenant_id"`
+	ProductID            int64       `json:"product_id"`
+	Code                 string      `json:"code"`
+	LookupKey            pgtype.Text `json:"lookup_key"`
+	PricingModel         int16       `json:"pricing_model"`
+	Currency             string      `json:"currency"`
+	UnitAmountCents      int64       `json:"unit_amount_cents"`
+	BillingInterval      int16       `json:"billing_interval"`
+	BillingIntervalCount int32       `json:"billing_interval_count"`
+	Active               bool        `json:"active"`
+	Metadata             []byte      `json:"metadata"`
 }
 
-func (q *Queries) InsertPrice(ctx context.Context, arg InsertPriceParams) (Price, error) {
-	row := q.db.QueryRowContext(ctx, insertPrice,
+func (q *Queries) InsertPrice(ctx context.Context, arg InsertPriceParams) (Prices, error) {
+	row := q.db.QueryRow(ctx, insertPrice,
 		arg.ID,
 		arg.TenantID,
 		arg.ProductID,
@@ -117,7 +116,7 @@ func (q *Queries) InsertPrice(ctx context.Context, arg InsertPriceParams) (Price
 		arg.Active,
 		arg.Metadata,
 	)
-	var i Price
+	var i Prices
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
@@ -146,17 +145,17 @@ INSERT INTO products (
 `
 
 type InsertProductParams struct {
-	ID          int64
-	TenantID    int64
-	Name        string
-	Code        string
-	Description sql.NullString
-	Active      bool
-	Metadata    pqtype.NullRawMessage
+	ID          int64       `json:"id"`
+	TenantID    int64       `json:"tenant_id"`
+	Name        string      `json:"name"`
+	Code        string      `json:"code"`
+	Description pgtype.Text `json:"description"`
+	Active      bool        `json:"active"`
+	Metadata    []byte      `json:"metadata"`
 }
 
-func (q *Queries) InsertProduct(ctx context.Context, arg InsertProductParams) (Product, error) {
-	row := q.db.QueryRowContext(ctx, insertProduct,
+func (q *Queries) InsertProduct(ctx context.Context, arg InsertProductParams) (Products, error) {
+	row := q.db.QueryRow(ctx, insertProduct,
 		arg.ID,
 		arg.TenantID,
 		arg.Name,
@@ -165,7 +164,7 @@ func (q *Queries) InsertProduct(ctx context.Context, arg InsertProductParams) (P
 		arg.Active,
 		arg.Metadata,
 	)
-	var i Product
+	var i Products
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
@@ -191,15 +190,15 @@ LIMIT $4 OFFSET $5
 `
 
 type ListPricesWithFilterParams struct {
-	TenantID int64
-	Column2  int64
-	Column3  string
-	Limit    int32
-	Offset   int32
+	TenantID int64  `json:"tenant_id"`
+	Column2  int64  `json:"column_2"`
+	Column3  string `json:"column_3"`
+	Limit    int32  `json:"limit"`
+	Offset   int32  `json:"offset"`
 }
 
-func (q *Queries) ListPricesWithFilter(ctx context.Context, arg ListPricesWithFilterParams) ([]Price, error) {
-	rows, err := q.db.QueryContext(ctx, listPricesWithFilter,
+func (q *Queries) ListPricesWithFilter(ctx context.Context, arg ListPricesWithFilterParams) ([]Prices, error) {
+	rows, err := q.db.Query(ctx, listPricesWithFilter,
 		arg.TenantID,
 		arg.Column2,
 		arg.Column3,
@@ -210,9 +209,9 @@ func (q *Queries) ListPricesWithFilter(ctx context.Context, arg ListPricesWithFi
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Price
+	var items []Prices
 	for rows.Next() {
-		var i Price
+		var i Prices
 		if err := rows.Scan(
 			&i.ID,
 			&i.TenantID,
@@ -233,9 +232,6 @@ func (q *Queries) ListPricesWithFilter(ctx context.Context, arg ListPricesWithFi
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -251,20 +247,20 @@ LIMIT $2 OFFSET $3
 `
 
 type ListProductsByTenantParams struct {
-	TenantID int64
-	Limit    int32
-	Offset   int32
+	TenantID int64 `json:"tenant_id"`
+	Limit    int32 `json:"limit"`
+	Offset   int32 `json:"offset"`
 }
 
-func (q *Queries) ListProductsByTenant(ctx context.Context, arg ListProductsByTenantParams) ([]Product, error) {
-	rows, err := q.db.QueryContext(ctx, listProductsByTenant, arg.TenantID, arg.Limit, arg.Offset)
+func (q *Queries) ListProductsByTenant(ctx context.Context, arg ListProductsByTenantParams) ([]Products, error) {
+	rows, err := q.db.Query(ctx, listProductsByTenant, arg.TenantID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Product
+	var items []Products
 	for rows.Next() {
-		var i Product
+		var i Products
 		if err := rows.Scan(
 			&i.ID,
 			&i.TenantID,
@@ -279,9 +275,6 @@ func (q *Queries) ListProductsByTenant(ctx context.Context, arg ListProductsByTe
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

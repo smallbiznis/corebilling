@@ -7,10 +7,8 @@ package sqlc
 
 import (
 	"context"
-	"database/sql"
-	"time"
 
-	"github.com/sqlc-dev/pqtype"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createSubscription = `-- name: CreateSubscription :exec
@@ -32,24 +30,24 @@ INSERT INTO subscriptions (
 `
 
 type CreateSubscriptionParams struct {
-	ID                 string
-	TenantID           string
-	CustomerID         string
-	PriceID            string
-	Status             int16
-	AutoRenew          bool
-	StartAt            time.Time
-	CurrentPeriodStart time.Time
-	CurrentPeriodEnd   time.Time
-	TrialStartAt       sql.NullTime
-	TrialEndAt         sql.NullTime
-	CancelAt           sql.NullTime
-	CanceledAt         sql.NullTime
-	Metadata           pqtype.NullRawMessage
+	ID                 int64              `json:"id"`
+	TenantID           int64              `json:"tenant_id"`
+	CustomerID         int64              `json:"customer_id"`
+	PriceID            int64              `json:"price_id"`
+	Status             int16              `json:"status"`
+	AutoRenew          bool               `json:"auto_renew"`
+	StartAt            pgtype.Timestamptz `json:"start_at"`
+	CurrentPeriodStart pgtype.Timestamptz `json:"current_period_start"`
+	CurrentPeriodEnd   pgtype.Timestamptz `json:"current_period_end"`
+	TrialStartAt       pgtype.Timestamptz `json:"trial_start_at"`
+	TrialEndAt         pgtype.Timestamptz `json:"trial_end_at"`
+	CancelAt           pgtype.Timestamptz `json:"cancel_at"`
+	CanceledAt         pgtype.Timestamptz `json:"canceled_at"`
+	Metadata           []byte             `json:"metadata"`
 }
 
 func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscriptionParams) error {
-	_, err := q.db.ExecContext(ctx, createSubscription,
+	_, err := q.db.Exec(ctx, createSubscription,
 		arg.ID,
 		arg.TenantID,
 		arg.CustomerID,
@@ -80,9 +78,9 @@ FROM subscriptions
 WHERE id = $1
 `
 
-func (q *Queries) GetSubscription(ctx context.Context, id string) (Subscription, error) {
-	row := q.db.QueryRowContext(ctx, getSubscription, id)
-	var i Subscription
+func (q *Queries) GetSubscription(ctx context.Context, id int64) (Subscriptions, error) {
+	row := q.db.QueryRow(ctx, getSubscription, id)
+	var i Subscriptions
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
@@ -117,15 +115,15 @@ WHERE tenant_id = $1
 ORDER BY created_at DESC
 `
 
-func (q *Queries) ListSubscriptionsByTenant(ctx context.Context, tenantID string) ([]Subscription, error) {
-	rows, err := q.db.QueryContext(ctx, listSubscriptionsByTenant, tenantID)
+func (q *Queries) ListSubscriptionsByTenant(ctx context.Context, tenantID int64) ([]Subscriptions, error) {
+	rows, err := q.db.Query(ctx, listSubscriptionsByTenant, tenantID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Subscription
+	var items []Subscriptions
 	for rows.Next() {
-		var i Subscription
+		var i Subscriptions
 		if err := rows.Scan(
 			&i.ID,
 			&i.TenantID,
@@ -147,9 +145,6 @@ func (q *Queries) ListSubscriptionsByTenant(ctx context.Context, tenantID string
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

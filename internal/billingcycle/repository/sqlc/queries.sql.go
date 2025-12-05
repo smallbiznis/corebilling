@@ -15,7 +15,7 @@ const getCycleForTenant = `-- name: GetCycleForTenant :one
 SELECT tenant_id, period_start, period_end, last_closed_at, created_at, updated_at FROM tenant_billing_cycle WHERE tenant_id = $1 LIMIT 1
 `
 
-func (q *Queries) GetCycleForTenant(ctx context.Context, tenantID string) (TenantBillingCycle, error) {
+func (q *Queries) GetCycleForTenant(ctx context.Context, tenantID int64) (TenantBillingCycle, error) {
 	row := q.db.QueryRow(ctx, getCycleForTenant, tenantID)
 	var i TenantBillingCycle
 	err := row.Scan(
@@ -34,15 +34,15 @@ SELECT tenant_id FROM tenant_billing_cycle
 WHERE period_end <= now()
 `
 
-func (q *Queries) ListTenantsDueForCycleClose(ctx context.Context) ([]string, error) {
+func (q *Queries) ListTenantsDueForCycleClose(ctx context.Context) ([]int64, error) {
 	rows, err := q.db.Query(ctx, listTenantsDueForCycleClose)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []int64
 	for rows.Next() {
-		var tenant_id string
+		var tenant_id int64
 		if err := rows.Scan(&tenant_id); err != nil {
 			return nil, err
 		}
@@ -64,7 +64,7 @@ WHERE tenant_id = $1
 `
 
 type UpdateBillingCycleParams struct {
-	TenantID    string             `json:"tenant_id"`
+	TenantID    int64              `json:"tenant_id"`
 	PeriodStart pgtype.Timestamptz `json:"period_start"`
 	PeriodEnd   pgtype.Timestamptz `json:"period_end"`
 }

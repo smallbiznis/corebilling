@@ -3,6 +3,7 @@ package app
 import (
 	"go.uber.org/fx"
 
+	"github.com/bwmarrin/snowflake"
 	"github.com/smallbiznis/corebilling/internal/audit"
 	"github.com/smallbiznis/corebilling/internal/billing"
 	"github.com/smallbiznis/corebilling/internal/billing_event"
@@ -19,8 +20,8 @@ import (
 	"github.com/smallbiznis/corebilling/internal/pricing"
 	"github.com/smallbiznis/corebilling/internal/quota"
 	"github.com/smallbiznis/corebilling/internal/rating"
-	"github.com/smallbiznis/corebilling/internal/server/grpc"
-	"github.com/smallbiznis/corebilling/internal/server/http"
+	grpcserver "github.com/smallbiznis/corebilling/internal/server/grpc"
+	httpserver "github.com/smallbiznis/corebilling/internal/server/http"
 	"github.com/smallbiznis/corebilling/internal/subscription"
 	"github.com/smallbiznis/corebilling/internal/telemetry"
 	"github.com/smallbiznis/corebilling/internal/tenant"
@@ -35,6 +36,7 @@ func New() *fx.App {
 		log.Module,
 		db.Module,
 		db.MigrationsModule,
+		snowflakeNode,
 		telemetry.Module,
 		eventfx.Module,
 		billing.Module,
@@ -57,3 +59,7 @@ func New() *fx.App {
 		webhook.Module,
 	)
 }
+
+var snowflakeNode = fx.Provide(func() (*snowflake.Node, error) {
+	return snowflake.NewNode(1)
+})

@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS ledger_accounts (
-    id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
     name TEXT NOT NULL,
     type SMALLINT NOT NULL,
     currency TEXT NOT NULL,
@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS ledger_accounts (
 CREATE INDEX IF NOT EXISTS idx_ledger_accounts_tenant ON ledger_accounts (tenant_id);
 
 CREATE TABLE IF NOT EXISTS ledger_journals (
-    id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
     reference_id TEXT,
     reference_type TEXT,
     description TEXT,
@@ -26,9 +26,9 @@ CREATE TABLE IF NOT EXISTS ledger_journals (
 CREATE INDEX IF NOT EXISTS idx_ledger_journals_tenant ON ledger_journals (tenant_id);
 
 CREATE TABLE IF NOT EXISTS ledger_entries (
-    id TEXT PRIMARY KEY,
-    journal_entry_id TEXT NOT NULL REFERENCES ledger_journals(id) ON DELETE CASCADE,
-    account_id TEXT NOT NULL REFERENCES ledger_accounts(id),
+    id BIGINT PRIMARY KEY,
+    journal_entry_id BIGINT NOT NULL REFERENCES ledger_journals(id) ON DELETE CASCADE,
+    account_id BIGINT NOT NULL REFERENCES ledger_accounts(id),
     entry_type SMALLINT NOT NULL,
     amount_cents BIGINT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()

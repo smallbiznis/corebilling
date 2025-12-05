@@ -5,7 +5,7 @@ INSERT INTO webhooks (
 ) VALUES (
     $1, $2, $3, $4,
     $5, $6, $7, $8
-) RETURNING *;
+) RETURNING id, tenant_id, target_url, secret, event_types, enabled, created_at, updated_at;
 
 -- name: GetWebhookByID :one
 SELECT id, tenant_id, target_url, secret, event_types, enabled, created_at, updated_at
@@ -27,7 +27,7 @@ INSERT INTO webhook_delivery_attempts (
 ) VALUES (
     $1, $2, $3, $4,
     $5, $6, $7, $8, $9
-) RETURNING *;
+) RETURNING id, webhook_id, event_id, tenant_id, payload, status, attempt_no, next_run_at, last_error, created_at, updated_at;
 
 -- name: UpdateDeliveryAttemptStatus :exec
 UPDATE webhook_delivery_attempts

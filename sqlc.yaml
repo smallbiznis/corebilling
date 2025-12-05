@@ -1,5 +1,39 @@
 version: "2"
 sql:
+  - name: tenant
+    engine: postgresql
+    queries: internal/tenant/repository/sqlc/queries.sql
+    schema: db/migrations/tenant/up
+    gen:
+      go:
+        package: sqlc
+        out: internal/tenant/repository/sqlc
+        sql_package: "pgx/v5"
+        emit_exact_table_names: true
+        emit_json_tags: true
+        emit_methods_with_db_argument: false
+        overrides:
+          - db_type: "jsonb"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
+  - name: customer
+    engine: postgresql
+    queries: internal/customer/repository/sqlc/queries.sql
+    schema: db/migrations/customer/up
+    gen:
+      go:
+        package: sqlc
+        out: internal/customer/repository/sqlc
+        sql_package: "pgx/v5"
+        emit_exact_table_names: true
+        emit_json_tags: true
+        emit_methods_with_db_argument: false
+        overrides:
+          - db_type: "jsonb"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
   - name: billing
     engine: postgresql
     queries: internal/billing/repository/sqlc/queries.sql
@@ -25,6 +59,15 @@ sql:
       go:
         package: sqlc
         out: internal/invoice/repository/sqlc
+        sql_package: "pgx/v5"
+        emit_exact_table_names: true
+        emit_json_tags: true
+        emit_methods_with_db_argument: false
+        overrides:
+          - db_type: "jsonb"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
   - name: pricing
     engine: postgresql
     queries: internal/pricing/repository/sqlc/queries.sql
@@ -33,6 +76,15 @@ sql:
       go:
         package: sqlc
         out: internal/pricing/repository/sqlc
+        sql_package: "pgx/v5"
+        emit_exact_table_names: true
+        emit_json_tags: true
+        emit_methods_with_db_argument: false
+        overrides:
+          - db_type: "jsonb"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
   - name: rating
     engine: postgresql
     queries: internal/rating/repository/sqlc/queries.sql
@@ -41,6 +93,32 @@ sql:
       go:
         package: sqlc
         out: internal/rating/repository/sqlc
+        sql_package: "pgx/v5"
+        emit_exact_table_names: true
+        emit_json_tags: true
+        emit_methods_with_db_argument: false
+        overrides:
+          - db_type: "jsonb"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
+  - name: meter
+    engine: postgresql
+    queries: internal/meter/repository/sqlc/queries.sql
+    schema: db/migrations/meter/up
+    gen:
+      go:
+        package: sqlc
+        out: internal/meter/repository/sqlc
+        sql_package: "pgx/v5"
+        emit_exact_table_names: true
+        emit_json_tags: true
+        emit_methods_with_db_argument: false
+        overrides:
+          - db_type: "jsonb"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
   - name: subscription
     engine: postgresql
     queries: internal/subscription/repository/sqlc/queries.sql
@@ -49,6 +127,15 @@ sql:
       go:
         package: sqlc
         out: internal/subscription/repository/sqlc
+        sql_package: "pgx/v5"
+        emit_exact_table_names: true
+        emit_json_tags: true
+        emit_methods_with_db_argument: false
+        overrides:
+          - db_type: "jsonb"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
   - name: usage
     engine: postgresql
     queries: internal/usage/repository/sqlc/queries.sql
@@ -68,7 +155,7 @@ sql:
               type: "RawMessage"
   - name: webhook
     engine: postgresql
-    queries: internal/webhook/repository/queries.sql
+    queries: internal/webhook/repository/sqlc/queries.sql
     schema: db/migrations/webhook/up
     gen:
       go:
@@ -85,7 +172,7 @@ sql:
               type: "RawMessage"
   - name: idempotency
     engine: postgresql
-    queries: internal/idempotency/queries.sql
+    queries: internal/idempotency/repository/sqlc/queries.sql
     schema: db/migrations/idempotency/up
     gen:
       go:
@@ -100,11 +187,8 @@ sql:
             go_type:
               import: "encoding/json"
               type: "RawMessage"
-  - schema: db/migrations/billing_event/up
-    queries: ""
-    engine: "postgresql"
-  - schema: "migrations/quota/up"
-    queries: "internal/quota/repository/queries.sql"
+  - schema: "db/migrations/quota/up"
+    queries: "internal/quota/repository/sqlc/queries.sql"
     engine: "postgresql"
     gen:
       go:
@@ -119,8 +203,8 @@ sql:
             go_type:
               import: "encoding/json"
               type: "RawMessage"
-  - schema: "migrations/billing_cycle/up"
-    queries: "internal/billingcycle/repository/queries.sql"
+  - schema: "db/migrations/billing_cycle/up"
+    queries: "internal/billingcycle/repository/sqlc/queries.sql"
     engine: "postgresql"
     gen:
       go:
@@ -136,7 +220,7 @@ sql:
               import: "encoding/json"
               type: "RawMessage"
   - schema: "db/migrations/billing_event/up"   # no new migrations
-    queries: "internal/events/replay/repository/queries.sql"
+    queries: "internal/events/replay/repository/sqlc/queries.sql"
     engine: "postgresql"
     gen:
       go:

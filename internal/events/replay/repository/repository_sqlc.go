@@ -133,7 +133,7 @@ func toEnvelope(evt sqlc.BillingEvents) (EventEnvelope, error) {
 	}
 
 	if evt.ResourceID.Valid {
-		env.ResourceID = formatInt64(evt.ResourceID.Int64)
+		env.ResourceID = evt.ResourceID.String
 	}
 	if evt.EventType.Valid {
 		env.EventType = evt.EventType.String

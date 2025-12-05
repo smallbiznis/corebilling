@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/bwmarrin/snowflake"
 	customerv1 "github.com/smallbiznis/go-genproto/smallbiznis/customer/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -20,11 +21,13 @@ type Service struct {
 	customerv1.UnimplementedCustomerServiceServer
 	repo   Repository
 	logger *zap.Logger
+
+	genID *snowflake.Node
 }
 
 // NewService injects dependencies for customer operations.
-func NewService(repo Repository, logger *zap.Logger) *Service {
-	return &Service{repo: repo, logger: logger.Named("customer.service")}
+func NewService(repo Repository, logger *zap.Logger, genID *snowflake.Node) *Service {
+	return &Service{repo: repo, logger: logger.Named("customer.service"), genID: genID}
 }
 
 func (s *Service) CreateCustomer(ctx context.Context, req *customerv1.CreateCustomerRequest) (*customerv1.Customer, error) {
@@ -33,15 +36,16 @@ func (s *Service) CreateCustomer(ctx context.Context, req *customerv1.CreateCust
 		return nil, status.Error(codes.InvalidArgument, "customer payload and tenant_id are required")
 	}
 
-	id := payload.GetId()
-	if id == "" {
-		id = strconv.FormatInt(time.Now().UnixNano(), 10)
+	now := time.Now().UTC()
+	tenantID, err := snowflake.ParseString(payload.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 	}
 
-	now := time.Now().UTC()
+	customerID := s.genID.Generate()
 	customer := Customer{
-		ID:                id,
-		TenantID:          payload.GetTenantId(),
+		ID:                customerID.Int64(),
+		TenantID:          tenantID.Int64(),
 		ExternalReference: payload.GetExternalReference(),
 		Email:             payload.GetEmail(),
 		Name:              payload.GetName(),
@@ -102,14 +106,18 @@ func (s *Service) UpdateCustomer(ctx context.Context, req *customerv1.UpdateCust
 	if payload == nil || payload.GetId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "customer payload with id is required")
 	}
+
 	existing, err := s.repo.GetByID(ctx, payload.GetId())
 	if err != nil {
 		return nil, err
 	}
 
-	if payload.GetTenantId() != "" {
-		existing.TenantID = payload.GetTenantId()
+	tenantID, err := snowflake.ParseString(payload.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 	}
+
+	existing.TenantID = tenantID.Int64()
 	existing.ExternalReference = payload.GetExternalReference()
 	existing.Email = payload.GetEmail()
 	existing.Name = payload.GetName()
@@ -129,8 +137,8 @@ func (s *Service) UpdateCustomer(ctx context.Context, req *customerv1.UpdateCust
 
 func (s *Service) toProto(customer Customer) *customerv1.Customer {
 	return &customerv1.Customer{
-		Id:                customer.ID,
-		TenantId:          customer.TenantID,
+		Id:                snowflake.ParseInt64(customer.ID).String(),
+		TenantId:          snowflake.ParseInt64(customer.TenantID).String(),
 		ExternalReference: customer.ExternalReference,
 		Email:             customer.Email,
 		Name:              customer.Name,

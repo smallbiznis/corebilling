@@ -9,7 +9,7 @@ import (
 )
 
 type TenantBillingCycle struct {
-	TenantID     string             `json:"tenant_id"`
+	TenantID     int64              `json:"tenant_id"`
 	PeriodStart  pgtype.Timestamptz `json:"period_start"`
 	PeriodEnd    pgtype.Timestamptz `json:"period_end"`
 	LastClosedAt pgtype.Timestamptz `json:"last_closed_at"`
