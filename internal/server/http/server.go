@@ -10,33 +10,46 @@ import (
 )
 
 // Module starts an HTTP server offering a readiness endpoint.
-var Module = fx.Invoke(Register)
+var Module = fx.Options(
+	fx.Provide(fx.Annotate(middleware.LoggingMiddleware, fx.ResultTags(`group:"http_middleware"`))),
+	fx.Invoke(Register),
+)
+
+type params struct {
+	fx.In
+
+	LC          fx.Lifecycle
+	Logger      *zap.Logger
+	Middlewares []middleware.Middleware `group:"http_middleware"`
+}
 
 // Register sets up lifecycle hooks for HTTP server.
-func Register(lc fx.Lifecycle, logger *zap.Logger) {
+func Register(p params) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ready", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
 
+	handler := middleware.Chain(mux, p.Middlewares...)
+
 	srv := &http.Server{
 		Addr:    ":8080",
-		Handler: middleware.LoggingMiddleware(mux),
+		Handler: handler,
 	}
 
-	lc.Append(fx.Hook{
+	p.LC.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			go func() {
-				logger.Info("http server listening", zap.String("addr", srv.Addr))
+				p.Logger.Info("http server listening", zap.String("addr", srv.Addr))
 				if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-					logger.Error("http server exited", zap.Error(err))
+					p.Logger.Error("http server exited", zap.Error(err))
 				}
 			}()
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			logger.Info("stopping http server")
+			p.Logger.Info("stopping http server")
 			return srv.Shutdown(ctx)
 		},
 	})

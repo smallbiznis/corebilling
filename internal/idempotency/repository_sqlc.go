@@ -4,8 +4,9 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-
+	"github.com/jackc/pgx/v5/stdlib"
 	idempotencysqlc "github.com/smallbiznis/corebilling/internal/idempotency/repository/sqlc"
+	"github.com/sqlc-dev/pqtype"
 )
 
 // SQLRepository implements Repository using sqlc-generated queries.
@@ -15,7 +16,8 @@ type SQLRepository struct {
 
 // NewSQLRepository constructs a new SQL-backed repository.
 func NewSQLRepository(pool *pgxpool.Pool) *SQLRepository {
-	return &SQLRepository{queries: idempotencysqlc.New(pool)}
+	db := stdlib.OpenDB(*pool.Config().ConnConfig)
+	return &SQLRepository{queries: idempotencysqlc.New(db)}
 }
 
 func (r *SQLRepository) Get(ctx context.Context, tenantID, key string) (*Record, error) {
@@ -27,7 +29,7 @@ func (r *SQLRepository) Get(ctx context.Context, tenantID, key string) (*Record,
 		TenantID:    dbRecord.TenantID,
 		Key:         dbRecord.Key,
 		RequestHash: dbRecord.RequestHash,
-		Response:    dbRecord.Response,
+		Response:    dbRecord.Response.RawMessage,
 		Status:      Status(dbRecord.Status),
 		CreatedAt:   dbRecord.CreatedAt,
 		UpdatedAt:   dbRecord.UpdatedAt,
@@ -46,7 +48,7 @@ func (r *SQLRepository) MarkCompleted(ctx context.Context, tenantID, key string,
 	return r.queries.MarkCompleted(ctx, idempotencysqlc.MarkCompletedParams{
 		TenantID: tenantID,
 		Key:      key,
-		Response: response,
+		Response: pqtype.NullRawMessage{RawMessage: response, Valid: response != nil},
 	})
 }
 

@@ -64,6 +64,20 @@ sql:
       go:
         package: idempotencysqlc
         out: internal/idempotency/repository/sqlc
+  - schema: "migrations/quota/up"
+    queries: "internal/quota/repository/queries.sql"
+    engine: "postgresql"
+    gen:
+      go:
+        package: "quotarepo"
+        out: "internal/quota/repository/sqlc"
+  - schema: "migrations/billing_cycle/up"
+    queries: "internal/billingcycle/repository/queries.sql"
+    engine: "postgresql"
+    gen:
+      go:
+        package: "billingcyclerepo"
+        out: "internal/billingcycle/repository/sqlc"
   - schema: ""   # no new migrations
     queries: "internal/events/replay/repository/queries.sql"
     engine: "postgresql"
