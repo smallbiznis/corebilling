@@ -3,6 +3,7 @@ package httpserver
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/smallbiznis/corebilling/internal/server/http/middleware"
@@ -12,7 +13,12 @@ import (
 
 // Module starts an HTTP server offering a readiness endpoint.
 var Module = fx.Options(
-	fx.Provide(fx.Annotate(middleware.LoggingMiddleware, fx.ResultTags(`group:"http_middleware"`))),
+	fx.Provide(
+		fx.Annotate(middleware.LoggingMiddleware, fx.ResultTags(`group:"http_middleware"`)),
+	),
+	fx.Provide(
+		fx.Annotate(middleware.RecoveryMiddleware, fx.ResultTags(`group:"http_middleware"`)),
+	),
 	fx.Provide(NewRegisterMux),
 	fx.Invoke(Register),
 )
@@ -33,11 +39,15 @@ func NewRegisterMux() *runtime.ServeMux {
 // Register sets up lifecycle hooks for HTTP server.
 func Register(p params) {
 	mux := p.Mux
-	// mux.HandlePath()
-	// mux.HandleFunc("/ready", func(w http.ResponseWriter, _ *http.Request) {
-	// 	w.WriteHeader(http.StatusOK)
-	// 	_, _ = w.Write([]byte("ok"))
-	// })
+
+	mux.HandlePath("GET", "/ready", func(w http.ResponseWriter, r *http.Request, _ map[string]string) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	for i, mw := range p.Middlewares {
+		p.Logger.Info("middleware loaded", zap.Int("index", i), zap.Reflect("mw", mw))
+	}
 
 	handler := middleware.Chain(mux, p.Middlewares...)
 
@@ -57,8 +67,10 @@ func Register(p params) {
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
+			shutdownCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			defer cancel()
 			p.Logger.Info("stopping http server")
-			return srv.Shutdown(ctx)
+			return srv.Shutdown(shutdownCtx)
 		},
 	})
 }

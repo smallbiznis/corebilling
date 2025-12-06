@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/smallbiznis/corebilling/internal/headers"
 	"github.com/smallbiznis/corebilling/internal/server/http/middleware"
 	"go.uber.org/zap"
 )
@@ -13,7 +14,7 @@ func NewHTTPMiddleware(rl RateLimiter, svc *Service, logger *zap.Logger) middlew
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodPost && (r.URL.Path == "/v1/usage" || r.URL.Path == "/v1/events") {
-				tenantID := r.Header.Get("X-Tenant-ID")
+				tenantID := r.Header.Get(headers.HeaderTenantID)
 				if tenantID != "" {
 					if !rl.Allow(tenantID) {
 						logger.Warn("http rate limit exceeded", zap.String("tenant_id", tenantID))

@@ -17,9 +17,13 @@ import (
 // ModuleGRPC registers the invoice service with the shared gRPC server.
 var ModuleGRPC = fx.Invoke(RegisterGRPC)
 
+func RegisterService(svc *domain.Service) *grpcService {
+	return &grpcService{svc: svc}
+}
+
 // RegisterGRPC attaches the invoice handler.
-func RegisterGRPC(server *grpc.Server, svc *domain.Service) {
-	invoicev1.RegisterInvoiceServiceServer(server, &grpcService{svc: svc})
+func RegisterGRPC(server *grpc.Server, svc *grpcService) {
+	invoicev1.RegisterInvoiceServiceServer(server, svc)
 }
 
 type grpcService struct {

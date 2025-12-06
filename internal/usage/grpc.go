@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/oklog/ulid/v2"
+	"github.com/bwmarrin/snowflake"
 	"github.com/smallbiznis/corebilling/internal/usage/domain"
 	usagev1 "github.com/smallbiznis/go-genproto/smallbiznis/usage/v1"
 	"go.uber.org/fx"
@@ -19,14 +19,20 @@ import (
 // ModuleGRPC registers the usage service with the shared gRPC server.
 var ModuleGRPC = fx.Invoke(RegisterGRPC)
 
+func RegisterService(svc *domain.Service, genID *snowflake.Node) *grpcService {
+	return NewGrpcService(svc, genID)
+}
+
 // RegisterGRPC attaches the usage handler.
-func RegisterGRPC(server *grpc.Server, svc *domain.Service) {
-	usagev1.RegisterUsageServiceServer(server, &grpcService{svc: svc})
+func RegisterGRPC(server *grpc.Server, svc *grpcService) {
+	usagev1.RegisterUsageServiceServer(server, svc)
 }
 
 type grpcService struct {
 	usagev1.UnimplementedUsageServiceServer
 	svc *domain.Service
+
+	genID *snowflake.Node
 }
 
 const (
@@ -34,27 +40,45 @@ const (
 	maxUsagePageSize     = 500
 )
 
+func NewGrpcService(svc *domain.Service, genID *snowflake.Node) *grpcService {
+	return &grpcService{
+		svc:   svc,
+		genID: genID,
+	}
+}
+
 func (g *grpcService) IngestUsage(ctx context.Context, req *usagev1.IngestUsageRequest) (*usagev1.IngestUsageResponse, error) {
 	record := req.GetRecord()
 	if record == nil {
 		return nil, status.Error(codes.InvalidArgument, "record required")
 	}
+
 	if record.GetTenantId() == "" || record.GetCustomerId() == "" || record.GetSubscriptionId() == "" || record.GetMeterCode() == "" {
 		return nil, status.Error(codes.InvalidArgument, "tenant_id, customer_id, subscription_id, and meter_code are required")
 	}
 
-	now := time.Now().UTC()
-	usageID := record.GetId()
-	if usageID == "" {
-		usageID = ulid.Make().String()
+	if _, err := snowflake.ParseString(record.GetTenantId()); err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 	}
+
+	if _, err := snowflake.ParseString(record.GetCustomerId()); err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid customer_id")
+	}
+
+	if _, err := snowflake.ParseString(record.GetSubscriptionId()); err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid subscription_id")
+	}
+
+	now := time.Now().UTC()
+	usageID := g.genID.Generate()
+
 	recordedAt := now
 	if ts := record.GetRecordedAt(); ts != nil {
 		recordedAt = ts.AsTime()
 	}
 
 	usage := domain.UsageRecord{
-		ID:             usageID,
+		ID:             usageID.String(),
 		TenantID:       record.GetTenantId(),
 		CustomerID:     record.GetCustomerId(),
 		SubscriptionID: record.GetSubscriptionId(),
