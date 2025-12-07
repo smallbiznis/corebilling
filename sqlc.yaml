@@ -235,3 +235,14 @@ sql:
             go_type:
               import: "encoding/json"
               type: "RawMessage"
+  - schema: "db/migrations/billing_event/up"
+    queries: "internal/events/outbox/repository/sqlc/queries.sql"
+    engine: "postgresql"
+    gen:
+      go:
+        package: "sqlc"
+        out: "internal/events/outbox/repository/sqlc"
+        sql_package: "pgx/v5"
+        emit_exact_table_names: true
+        emit_json_tags: true
+        emit_methods_with_db_argument: false

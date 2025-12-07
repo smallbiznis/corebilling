@@ -5,8 +5,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/bwmarrin/snowflake"
 	pricingv1 "github.com/smallbiznis/go-genproto/smallbiznis/pricing/v1"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -16,21 +19,29 @@ type Service struct {
 	pricingv1.UnimplementedPricingServiceServer
 	repo   Repository
 	logger *zap.Logger
+
+	genID *snowflake.Node
 }
 
 // NewService constructs service.
-func NewService(repo Repository, logger *zap.Logger) *Service {
-	return &Service{repo: repo, logger: logger.Named("pricing.service")}
+func NewService(repo Repository, logger *zap.Logger, genID *snowflake.Node) *Service {
+	return &Service{repo: repo, logger: logger.Named("pricing.service"), genID: genID}
 }
 
 // CreateProduct stores a product.
 func (s *Service) CreateProduct(ctx context.Context, req *pricingv1.CreateProductRequest) (*pricingv1.Product, error) {
 	now := time.Now()
-	id := time.Now().UnixNano()
+	id := s.genID.Generate()
 	p := req.GetProduct()
+
+	tenantID, err := snowflake.ParseString(p.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
 	model := Product{
-		ID:          id,
-		TenantID:    parseID(p.GetTenantId()),
+		ID:          id.Int64(),
+		TenantID:    tenantID.Int64(),
 		Name:        p.GetName(),
 		Code:        p.GetCode(),
 		Description: p.GetDescription(),
@@ -70,12 +81,23 @@ func (s *Service) ListProducts(ctx context.Context, req *pricingv1.ListProductsR
 // CreatePrice persists a price.
 func (s *Service) CreatePrice(ctx context.Context, req *pricingv1.CreatePriceRequest) (*pricingv1.Price, error) {
 	now := time.Now()
-	id := time.Now().UnixNano()
+	id := s.genID.Generate()
 	p := req.GetPrice()
-	model := Price{
-		ID:                   id,
-		TenantID:             parseID(p.GetTenantId()),
-		ProductID:            parseID(p.GetProductId()),
+
+	tenantID, err := snowflake.ParseString(p.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	productID, err := snowflake.ParseString(p.GetProductId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	price := Price{
+		ID:                   id.Int64(),
+		TenantID:             tenantID.Int64(),
+		ProductID:            productID.Int64(),
 		Code:                 p.GetCode(),
 		LookupKey:            p.GetLookupKey(),
 		PricingModel:         int32(p.GetPricingModel()),
@@ -88,10 +110,28 @@ func (s *Service) CreatePrice(ctx context.Context, req *pricingv1.CreatePriceReq
 		CreatedAt:            now,
 		UpdatedAt:            now,
 	}
-	if err := s.repo.CreatePrice(ctx, model); err != nil {
+	if err := s.repo.CreatePrice(ctx, price); err != nil {
 		return nil, err
 	}
-	return s.toPriceProto(model), nil
+
+	for _, t := range req.GetTiers() {
+		tier := PriceTier{
+			ID:              s.genID.Generate().Int64(),
+			PriceID:         price.ID,
+			StartQuantity:   t.GetStartQuantity(),
+			EndQuantity:     t.GetEndQuantity(),
+			UnitAmountCents: t.GetUnitAmountCents(),
+			Unit:            t.GetUnit(),
+			Metadata:        structToMap(t.GetMetadata()),
+			CreatedAt:       now,
+			UpdatedAt:       now,
+		}
+		if err := s.repo.CreatePriceTier(ctx, tier); err != nil {
+			return nil, err
+		}
+	}
+
+	return s.toPriceProto(price), nil
 }
 
 // GetPrice loads a price.
@@ -105,13 +145,26 @@ func (s *Service) GetPrice(ctx context.Context, req *pricingv1.GetPriceRequest) 
 
 // ListPrices returns prices for a product.
 func (s *Service) ListPrices(ctx context.Context, req *pricingv1.ListPricesRequest) (*pricingv1.ListPricesResponse, error) {
-	items, err := s.repo.ListPrices(ctx, parseID(req.GetProductId()))
+	items, err := s.repo.ListPrices(ctx, parseID(req.GetTenantId()), parseID(req.GetProductId()))
 	if err != nil {
 		return nil, err
 	}
 	resp := &pricingv1.ListPricesResponse{}
+	var priceIDs []int64
 	for _, p := range items {
 		resp.Prices = append(resp.Prices, s.toPriceProto(p))
+		priceIDs = append(priceIDs, p.ID)
+	}
+
+	if len(priceIDs) > 0 {
+		tiers, err := s.repo.ListPriceTiersByPriceIDs(ctx, priceIDs)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, tier := range tiers {
+			resp.Tiers = append(resp.Tiers, s.toPriceTierProto(tier))
+		}
 	}
 	return resp, nil
 }
@@ -148,6 +201,19 @@ func (s *Service) toPriceProto(p Price) *pricingv1.Price {
 		Metadata:             metadata,
 		CreatedAt:            timestamppb.New(p.CreatedAt),
 		UpdatedAt:            timestamppb.New(p.UpdatedAt),
+	}
+}
+
+func (s *Service) toPriceTierProto(t PriceTier) *pricingv1.PriceTier {
+	metadata, _ := structpb.NewStruct(t.Metadata)
+	return &pricingv1.PriceTier{
+		Id:              strconv.FormatInt(t.ID, 10),
+		PriceId:         strconv.FormatInt(t.PriceID, 10),
+		StartQuantity:   t.StartQuantity,
+		EndQuantity:     t.EndQuantity,
+		UnitAmountCents: t.UnitAmountCents,
+		Unit:            t.Unit,
+		Metadata:        metadata,
 	}
 }
 

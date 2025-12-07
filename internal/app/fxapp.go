@@ -29,8 +29,18 @@ import (
 	"github.com/smallbiznis/corebilling/internal/webhook"
 )
 
-// New returns a fully wired Fx application.
-func New() *fx.App {
+func Cloud() *fx.App {
+	return fx.New(
+		fx.Provide(config.Load),
+		log.Module,
+		db.Module,
+		snowflakeNode,
+		telemetry.Module,
+		tenant.Module,
+	)
+}
+
+func Billing() *fx.App {
 	return fx.New(
 		fx.Provide(config.Load),
 		log.Module,
@@ -39,11 +49,11 @@ func New() *fx.App {
 		snowflakeNode,
 		telemetry.Module,
 		eventfx.Module,
+		tenant.Module,
 		billing.Module,
 		billing_event.Module,
 		audit.Module,
 		customer.Module,
-		tenant.Module,
 		pricing.Module,
 		meter.Module,
 		invoice_engine.Module,

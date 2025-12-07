@@ -14,4 +14,4 @@ CREATE TABLE IF NOT EXISTS customers (
 );
 
 CREATE INDEX IF NOT EXISTS idx_customers_tenant ON customers (tenant_id);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_tenant_external ON customers (tenant_id, external_reference);
+-- CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_tenant_external ON customers (tenant_id, external_reference);

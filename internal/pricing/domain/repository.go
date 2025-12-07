@@ -9,5 +9,7 @@ type Repository interface {
 	ListProducts(ctx context.Context, tenantID int64) ([]Product, error)
 	CreatePrice(ctx context.Context, p Price) error
 	GetPrice(ctx context.Context, id int64) (Price, error)
-	ListPrices(ctx context.Context, productID int64) ([]Price, error)
+	ListPrices(ctx context.Context, tenantID, productID int64) ([]Price, error)
+	CreatePriceTier(ctx context.Context, t PriceTier) error
+	ListPriceTiersByPriceIDs(ctx context.Context, priceIDs []int64) ([]PriceTier, error)
 }

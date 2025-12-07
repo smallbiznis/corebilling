@@ -87,5 +87,5 @@ func setupEnv(t *testing.T) *testEnv {
 }
 
 func appInstance() *fx.App {
-	return app.New()
+	return app.Billing()
 }

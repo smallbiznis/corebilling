@@ -43,3 +43,5 @@ CREATE TABLE IF NOT EXISTS price_tiers (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE INDEX IF NOT EXISTS idx_price_tiers ON price_tiers (price_id);

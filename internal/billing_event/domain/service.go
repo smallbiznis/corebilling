@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/bwmarrin/snowflake"
 	"github.com/smallbiznis/corebilling/internal/events/outbox"
 	billingeventv1 "github.com/smallbiznis/go-genproto/smallbiznis/billing_event/v1"
 	eventv1 "github.com/smallbiznis/go-genproto/smallbiznis/event/v1"
@@ -15,13 +16,16 @@ import (
 type Service struct {
 	repo   outbox.OutboxRepository
 	logger *zap.Logger
+
+	genID *snowflake.Node
 }
 
 // NewService constructs Service.
-func NewService(repo outbox.OutboxRepository, logger *zap.Logger) *Service {
+func NewService(repo outbox.OutboxRepository, logger *zap.Logger, genID *snowflake.Node) *Service {
 	return &Service{
 		repo:   repo,
 		logger: logger.Named("billing_event.service"),
+		genID:  genID,
 	}
 }
 
