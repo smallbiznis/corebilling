@@ -42,7 +42,14 @@ func NewNATSBus(cfg events.EventBusConfig, logger *zap.Logger) (events.Bus, erro
 	}
 
 	streamName := cfg.NATSStream
-	subjects := []string{"billing.*.*.v1", "subscription.*.*.v1", "customer.*.*.v1"}
+	subjects := []string{
+		"subscription.>",
+		"invoice.>",
+		"usage.>",
+		"rating.>",
+		"credit.>",
+		"plan.>",
+	}
 	if _, err := js.StreamInfo(streamName); err != nil {
 		if err == nats.ErrStreamNotFound {
 			if _, err := js.AddStream(&nats.StreamConfig{Name: streamName, Subjects: subjects}); err != nil {
@@ -136,7 +143,7 @@ func (b *NATSBus) Publish(ctx context.Context, envelopes ...events.EventEnvelope
 
 // Subscribe registers a queue subscription for the subject.
 func (b *NATSBus) Subscribe(ctx context.Context, subject, group string, handler events.Handler) error {
-	_, err := b.js.QueueSubscribe(subject, group, func(msg *nats.Msg) {
+	_, err := b.js.Subscribe(subject, func(msg *nats.Msg) {
 		go b.handleMessage(msg, handler, group)
 	})
 	if err != nil {

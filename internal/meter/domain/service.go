@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"github.com/bwmarrin/snowflake"
+	"github.com/smallbiznis/corebilling/internal/headers"
 	meterv1 "github.com/smallbiznis/go-genproto/smallbiznis/meter/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -29,14 +31,18 @@ func NewService(repo Repository, logger *zap.Logger, genID *snowflake.Node) *Ser
 }
 
 func (s *Service) CreateMeter(ctx context.Context, req *meterv1.CreateMeterRequest) (*meterv1.CreateMeterResponse, error) {
-	payload := req.GetMeter()
-	if payload == nil || payload.GetTenantId() == "" || payload.GetCode() == "" {
-		return nil, status.Error(codes.InvalidArgument, "meter tenant and code required")
+
+	md, _ := metadata.FromIncomingContext(ctx)
+	h := headers.ExtractMetadata(md)
+
+	tenantID, err := snowflake.ParseString(h.TenantID)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	tenantID, err := snowflake.ParseString(payload.GetTenantId())
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenantId")
+	payload := req.GetMeter()
+	if payload == nil || tenantID.String() == "" || payload.GetCode() == "" {
+		return nil, status.Error(codes.InvalidArgument, "meter tenant and code required")
 	}
 
 	now := time.Now().UTC()

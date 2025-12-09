@@ -11,6 +11,7 @@ var Module = fx.Options(
 	fx.Provide(reposqlc.NewRepository),
 	fx.Provide(domain.NewService),
 	ModuleGRPC,
+	ModuleHTTP,
 )
 
 var ModuleGRPC = fx.Invoke(RegisterGRPC)

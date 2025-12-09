@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/oklog/ulid/v2"
+	"github.com/bwmarrin/snowflake"
 	"github.com/smallbiznis/corebilling/internal/subscription/domain"
 	subscriptionv1 "github.com/smallbiznis/go-genproto/smallbiznis/subscription/v1"
 	"go.uber.org/fx"
@@ -19,8 +19,8 @@ import (
 // ModuleGRPC registers the subscription service.
 var ModuleGRPC = fx.Invoke(RegisterGRPC)
 
-func RegisterService(svc *domain.Service) *grpcService {
-	return &grpcService{svc: svc}
+func RegisterService(svc *domain.Service, genID *snowflake.Node) *grpcService {
+	return NewGrpcService(svc, genID)
 }
 
 // RegisterGRPC attaches the subscription handler.
@@ -31,12 +31,18 @@ func RegisterGRPC(server *grpc.Server, svc *grpcService) {
 type grpcService struct {
 	subscriptionv1.UnimplementedSubscriptionServiceServer
 	svc *domain.Service
+
+	genID *snowflake.Node
 }
 
 const (
 	defaultSubscriptionPageSize = 50
 	maxSubscriptionPageSize     = 200
 )
+
+func NewGrpcService(svc *domain.Service, genID *snowflake.Node) *grpcService {
+	return &grpcService{svc: svc, genID: genID}
+}
 
 func (g *grpcService) CreateSubscription(ctx context.Context, req *subscriptionv1.CreateSubscriptionRequest) (*subscriptionv1.Subscription, error) {
 	if req == nil || req.GetTenantId() == "" || req.GetCustomerId() == "" || req.GetPriceId() == "" {
@@ -57,7 +63,7 @@ func (g *grpcService) CreateSubscription(ctx context.Context, req *subscriptionv
 	}
 
 	sub := domain.Subscription{
-		ID:                 ulid.Make().String(),
+		ID:                 g.genID.Generate().String(),
 		TenantID:           req.GetTenantId(),
 		CustomerID:         req.GetCustomerId(),
 		PriceID:            req.GetPriceId(),

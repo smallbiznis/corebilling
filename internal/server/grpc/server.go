@@ -6,7 +6,6 @@ import (
 
 	"github.com/smallbiznis/corebilling/internal/server/grpc/interceptors"
 	"github.com/smallbiznis/corebilling/internal/telemetry"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -27,13 +26,14 @@ func NewServer(metrics *telemetry.Metrics) *grpc.Server {
 		grpc.ChainUnaryInterceptor(
 			interceptors.MetricsUnaryInterceptor(metrics),
 			interceptors.LoggingUnaryInterceptor,
-			otelgrpc.UnaryServerInterceptor(),
+			interceptors.BillingUnaryInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
 			interceptors.MetricsStreamInterceptor(metrics),
 			interceptors.LoggingStreamInterceptor,
-			otelgrpc.StreamServerInterceptor(),
+			interceptors.BillingStreamInterceptor,
 		),
+		// grpc.StatsHandler(),
 	)
 }
 

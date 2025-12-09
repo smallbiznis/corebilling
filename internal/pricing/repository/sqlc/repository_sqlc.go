@@ -65,8 +65,8 @@ func (r *Repository) CreatePriceTier(ctx context.Context, t domain.PriceTier) er
 	return err
 }
 
-func (r *Repository) GetPrice(ctx context.Context, id int64) (domain.Price, error) {
-	row := r.pool.QueryRow(ctx, `SELECT id, tenant_id, product_id, code, lookup_key, pricing_model, currency, unit_amount_cents, billing_interval, billing_interval_count, active, metadata, created_at, updated_at FROM prices WHERE id=$1`, id)
+func (r *Repository) GetPrice(ctx context.Context, tenantId, id int64) (domain.Price, error) {
+	row := r.pool.QueryRow(ctx, `SELECT id, tenant_id, product_id, code, lookup_key, pricing_model, currency, unit_amount_cents, billing_interval, billing_interval_count, active, metadata, created_at, updated_at FROM prices WHERE tenant_id=$1 AND id=$2`, tenantId, id)
 	var p domain.Price
 	if err := row.Scan(&p.ID, &p.TenantID, &p.ProductID, &p.Code, &p.LookupKey, &p.PricingModel, &p.Currency, &p.UnitAmountCents, &p.BillingInterval, &p.BillingIntervalCount, &p.Active, &p.Metadata, &p.CreatedAt, &p.UpdatedAt); err != nil {
 		return domain.Price{}, err

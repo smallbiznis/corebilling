@@ -2,11 +2,9 @@ package db
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	_ "github.com/lib/pq"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
@@ -14,7 +12,7 @@ import (
 )
 
 // Module wires the database connections via Fx.
-var Module = fx.Provide(NewPool, NewSQLDB)
+var Module = fx.Provide(NewPool)
 
 // NewPool creates a pgx connection pool.
 func NewPool(lc fx.Lifecycle, cfg config.Config, logger *zap.Logger) (*pgxpool.Pool, error) {
@@ -22,6 +20,11 @@ func NewPool(lc fx.Lifecycle, cfg config.Config, logger *zap.Logger) (*pgxpool.P
 	defer cancel()
 	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := pool.Ping(ctx); err != nil {
+		logger.Fatal("failed database ping", zap.Error(err))
 		return nil, err
 	}
 
@@ -35,20 +38,4 @@ func NewPool(lc fx.Lifecycle, cfg config.Config, logger *zap.Logger) (*pgxpool.P
 
 	logger.Info("database connected")
 	return pool, nil
-}
-
-// NewSQLDB exposes a database/sql handle for libraries that require it.
-func NewSQLDB(lc fx.Lifecycle, cfg config.Config, logger *zap.Logger) (*sql.DB, error) {
-	db, err := sql.Open("postgres", cfg.DatabaseURL)
-	if err != nil {
-		return nil, err
-	}
-	lc.Append(fx.Hook{
-		OnStop: func(ctx context.Context) error {
-			logger.Info("closing sql.DB")
-			return db.Close()
-		},
-	})
-	logger.Info("sql.DB ready")
-	return db, nil
 }

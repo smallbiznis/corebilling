@@ -33,14 +33,14 @@ type EventBusConfig struct {
 
 // NewEventBusConfig builds configuration from environment variables.
 func NewEventBusConfig() EventBusConfig {
-	provider := EventBusProvider(strings.ToLower(getenv("EVENT_BUS_PROVIDER", "noop")))
+	provider := EventBusProvider(strings.ToLower(getenv("EVENT_BUS_PROVIDER", "nats")))
 	return EventBusConfig{
 		Provider:          provider,
 		NATSURL:           getenv("NATS_URL", "nats://localhost"),
 		NATSUsername:      getenv("NATS_USERNAME", "natsuser"),
 		NATSPassword:      getenv("NATS_PASSWORD", "natspassword"),
 		NATSStream:        getenv("NATS_STREAM", "corebilling"),
-		KafkaBrokers:      parseCSV(getenv("KAFKA_BROKERS", "")),
+		KafkaBrokers:      parseCSV(getenv("KAFKA_BROKERS", "localhost:9092")),
 		KafkaSASLUsername: getenv("KAFKA_SASL_USERNAME", ""),
 		KafkaSASLPassword: getenv("KAFKA_SASL_PASSWORD", ""),
 		KafkaGroupID:      getenv("KAFKA_GROUP_ID", "corebilling"),

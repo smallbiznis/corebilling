@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS tenant_quota_limits (
 );
 
 CREATE TABLE IF NOT EXISTS tenant_quota_usage (
-    tenant_id TEBIGINTXT PRIMARY KEY,
+    tenant_id BIGINT PRIMARY KEY,
     events_today BIGINT NOT NULL DEFAULT 0,
     usage_units BIGINT NOT NULL DEFAULT 0,
     reset_at TIMESTAMPTZ,

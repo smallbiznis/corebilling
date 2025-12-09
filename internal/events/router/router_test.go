@@ -22,8 +22,8 @@ func TestRouterBackpressure(t *testing.T) {
 	t.Setenv("HANDLER_CONCURRENCY", "1")
 	r := NewRouter(&noopBus{}, zap.NewNop(), "group", nil)
 
-        block := make(chan struct{})
-        started := make(chan struct{}, 2)
+	block := make(chan struct{})
+	started := make(chan struct{}, 2)
 	handler := r.wrapHandler("subject", func(ctx context.Context, evt *events.Event) error {
 		started <- struct{}{}
 		<-block

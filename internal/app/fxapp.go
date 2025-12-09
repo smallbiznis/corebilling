@@ -8,7 +8,6 @@ import (
 	"github.com/smallbiznis/corebilling/internal/billing"
 	"github.com/smallbiznis/corebilling/internal/billing_event"
 	"github.com/smallbiznis/corebilling/internal/billingcycle"
-	"github.com/smallbiznis/corebilling/internal/clickhouse"
 	"github.com/smallbiznis/corebilling/internal/config"
 	"github.com/smallbiznis/corebilling/internal/customer"
 	"github.com/smallbiznis/corebilling/internal/db"
@@ -47,7 +46,6 @@ func Billing() *fx.App {
 		log.Module,
 		db.Module,
 		db.MigrationsModule,
-		clickhouse.Module,
 		snowflakeNode,
 		telemetry.Module,
 		eventfx.Module,

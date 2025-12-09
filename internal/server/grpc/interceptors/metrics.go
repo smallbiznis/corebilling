@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/smallbiznis/corebilling/internal/headers"
 	"github.com/smallbiznis/corebilling/internal/telemetry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -46,7 +47,7 @@ func extractTenant(ctx context.Context) string {
 		return ""
 	}
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		if vals := md.Get("tenant-id"); len(vals) > 0 {
+		if vals := md.Get(headers.MetadataTenantID); len(vals) > 0 {
 			return vals[0]
 		}
 	}

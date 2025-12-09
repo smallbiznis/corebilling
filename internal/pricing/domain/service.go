@@ -2,13 +2,16 @@ package domain
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/bwmarrin/snowflake"
+	"github.com/smallbiznis/corebilling/internal/headers"
 	pricingv1 "github.com/smallbiznis/go-genproto/smallbiznis/pricing/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -33,6 +36,13 @@ func (s *Service) CreateProduct(ctx context.Context, req *pricingv1.CreateProduc
 	now := time.Now()
 	id := s.genID.Generate()
 	p := req.GetProduct()
+
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok {
+		s.logger.Info("metadata", zap.Strings("tenantId", md.Get("x-tenant-id")))
+	}
+
+	fmt.Printf("TenantID: %v\n", ok)
 
 	tenantID, err := snowflake.ParseString(p.GetTenantId())
 	if err != nil {
@@ -67,7 +77,16 @@ func (s *Service) GetProduct(ctx context.Context, req *pricingv1.GetProductReque
 
 // ListProducts lists products by tenant.
 func (s *Service) ListProducts(ctx context.Context, req *pricingv1.ListProductsRequest) (*pricingv1.ListProductsResponse, error) {
-	items, err := s.repo.ListProducts(ctx, parseID(req.GetTenantId()))
+
+	md, _ := metadata.FromIncomingContext(ctx)
+	h := headers.ExtractMetadata(md)
+
+	tenantID, err := snowflake.ParseString(h.TenantID)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	items, err := s.repo.ListProducts(ctx, tenantID.Int64())
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +103,10 @@ func (s *Service) CreatePrice(ctx context.Context, req *pricingv1.CreatePriceReq
 	id := s.genID.Generate()
 	p := req.GetPrice()
 
-	tenantID, err := snowflake.ParseString(p.GetTenantId())
+	md, _ := metadata.FromIncomingContext(ctx)
+	h := headers.ExtractMetadata(md)
+
+	tenantID, err := snowflake.ParseString(h.TenantID)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 	}
@@ -136,7 +158,16 @@ func (s *Service) CreatePrice(ctx context.Context, req *pricingv1.CreatePriceReq
 
 // GetPrice loads a price.
 func (s *Service) GetPrice(ctx context.Context, req *pricingv1.GetPriceRequest) (*pricingv1.Price, error) {
-	price, err := s.repo.GetPrice(ctx, parseID(req.GetId()))
+
+	md, _ := metadata.FromIncomingContext(ctx)
+	h := headers.ExtractMetadata(md)
+
+	tenantID, err := snowflake.ParseString(h.TenantID)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	price, err := s.repo.GetPrice(ctx, tenantID.Int64(), parseID(req.GetId()))
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +176,16 @@ func (s *Service) GetPrice(ctx context.Context, req *pricingv1.GetPriceRequest) 
 
 // ListPrices returns prices for a product.
 func (s *Service) ListPrices(ctx context.Context, req *pricingv1.ListPricesRequest) (*pricingv1.ListPricesResponse, error) {
-	items, err := s.repo.ListPrices(ctx, parseID(req.GetTenantId()), parseID(req.GetProductId()))
+
+	md, _ := metadata.FromIncomingContext(ctx)
+	h := headers.ExtractMetadata(md)
+
+	tenantID, err := snowflake.ParseString(h.TenantID)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	items, err := s.repo.ListPrices(ctx, tenantID.Int64(), parseID(req.GetProductId()))
 	if err != nil {
 		return nil, err
 	}

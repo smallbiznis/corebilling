@@ -1,7 +1,6 @@
 package quota
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/smallbiznis/corebilling/internal/headers"
@@ -21,17 +20,17 @@ func NewHTTPMiddleware(rl RateLimiter, svc *Service, logger *zap.Logger) middlew
 						http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
 						return
 					}
-					if err := svc.CheckQuotaForEvent(r.Context(), tenantID); err != nil {
-						if errors.Is(err, ErrQuotaExceeded) {
-							http.Error(w, "quota exceeded", http.StatusTooManyRequests)
-							return
-						}
-						http.Error(w, "quota check failed", http.StatusInternalServerError)
-						return
-					}
-					if err := svc.IncrementUsage(r.Context(), tenantID, 1); err != nil {
-						logger.Error("failed to increment quota usage", zap.Error(err), zap.String("tenant_id", tenantID))
-					}
+					// if err := svc.CheckQuotaForEvent(r.Context(), tenantID); err != nil {
+					// 	if errors.Is(err, ErrQuotaExceeded) {
+					// 		http.Error(w, "quota exceeded", http.StatusTooManyRequests)
+					// 		return
+					// 	}
+					// 	http.Error(w, "quota check failed", http.StatusInternalServerError)
+					// 	return
+					// }
+					// if err := svc.IncrementUsage(r.Context(), tenantID, 1); err != nil {
+					// 	logger.Error("failed to increment quota usage", zap.Error(err), zap.String("tenant_id", tenantID))
+					// }
 				}
 			}
 			next.ServeHTTP(w, r)

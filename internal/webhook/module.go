@@ -60,7 +60,6 @@ func startWorker(lc fx.Lifecycle, worker *Worker, logger *zap.Logger) {
 func registerWebhookHandlers(router *router.Router, svc *Service, logger *zap.Logger) {
 	log := logger.Named("webhook.router")
 	for _, subject := range webhookSubjects {
-		subject := subject
 		router.Register(subject, func(ctx context.Context, evt *events.Event) error {
 			env := events.NewEnvelope(evt)
 			env.Subject = subject
@@ -79,31 +78,31 @@ func registerWebhookHandlers(router *router.Router, svc *Service, logger *zap.Lo
 }
 
 var webhookSubjects = []string{
-	"subscription.created",
-	"subscription.updated",
-	"subscription.upgraded",
-	"subscription.canceled",
-	"subscription.provisioned",
-	"subscription.price.updated",
-	"subscription.status.changed",
-	"usage.reported",
-	"usage.ingested",
-	"usage.rated",
-	"usage.aggregated",
-	"usage.status.changed",
-	"rating.completed",
-	"rating.failed",
-	"invoice.created",
-	"invoice.opened",
-	"invoice.generated",
-	"invoice.sent",
-	"invoice.paid",
-	"invoice.due",
-	"invoice.voided",
-	"invoice.status.changed",
-	"credit.applied",
-	"credit.reversed",
-	"plan.created",
-	"plan.updated",
-	"plan.deprecated",
+	"subscription.created.v1",
+	"subscription.updated.v1",
+	"subscription.upgraded.v1",
+	"subscription.canceled.v1",
+	"subscription.provisioned.v1",
+	"subscription.price.updated.v1",
+	"subscription.status.changed.v1",
+	"usage.reported.v1",
+	"usage.ingested.v1",
+	"usage.rated.v1",
+	"usage.aggregated.v1",
+	"usage.status.changed.v1",
+	"rating.completed.v1",
+	"rating.failed.v1",
+	"invoice.created.v1",
+	"invoice.opened.v1",
+	"invoice.generated.v1",
+	"invoice.sent.v1",
+	"invoice.paid.v1",
+	"invoice.due.v1",
+	"invoice.voided.v1",
+	"invoice.status.changed.v1",
+	"credit.applied.v1",
+	"credit.reversed.v1",
+	"plan.created.v1",
+	"plan.updated.v1",
+	"plan.deprecated.v1",
 }

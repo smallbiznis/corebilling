@@ -59,7 +59,7 @@ func (r *Router) UsePreHandler(fn func(context.Context, *events.Event) error) {
 // Start subscribes all registered handlers.
 func (r *Router) Start(ctx context.Context) error {
 	for subject, handler := range r.handlers {
-		if err := r.bus.Subscribe(ctx, subject, r.group, handler); err != nil {
+		if err := r.bus.Subscribe(ctx, subject, "", handler); err != nil {
 			return err
 		}
 	}
